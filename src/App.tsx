@@ -61,6 +61,7 @@ import AdminAccess from "@/pages/AdminAccess";
 import InvoiceManagement from "@/pages/InvoiceManagement";
 import QuotationManagement from "@/pages/QuotationManagement";
 import ProjectTracking from "@/pages/ProjectTracking";
+import ProjectDashboard from "@/pages/ProjectDashboard";
 import ClientPortal from "@/pages/ClientPortal";
 
 const queryClient = new QueryClient();
@@ -114,6 +115,7 @@ const App = () => (
                 <Route path="/invoices" element={<InvoiceManagement />} />
                 <Route path="/quotations" element={<QuotationManagement />} />
                 <Route path="/projects" element={<ProjectTracking />} />
+                <Route path="/project-dashboard" element={<ProjectDashboard />} />
                 
                 {/* Admin Routes */}
                 <Route path="/admin" element={<AdminDashboard />} />
