@@ -1113,3 +1113,405 @@ BEGIN
         FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
 END $$;
+
+-- =========================================
+-- CALENDAR AND EVENTS SYSTEM TABLES
+-- =========================================
+
+-- Calendar events table
+CREATE TABLE calendar_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    start_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('meeting', 'deadline', 'milestone', 'appointment', 'reminder', 'project_phase')),
+    status VARCHAR(50) NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled', 'overdue')),
+    priority VARCHAR(20) NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'critical')),
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+    assigned_to TEXT[], -- Array of user IDs
+    location VARCHAR(255),
+    meeting_link VARCHAR(500),
+    attachments TEXT[], -- Array of file paths
+    recurrence JSONB, -- Recurrence rules
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Calendar reminders table
+CREATE TABLE calendar_reminders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    event_id UUID NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
+    reminder_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('email', 'sms', 'push', 'system')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'failed', 'cancelled')),
+    recipients TEXT[] NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Calendar activity log
+CREATE TABLE calendar_activity_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    action VARCHAR(100) NOT NULL,
+    event_id UUID NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
+    user_id VARCHAR(255) NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =========================================
+-- FILE STORAGE SYSTEM TABLES
+-- =========================================
+
+-- File folders table
+CREATE TABLE file_folders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    parent_folder_id UUID REFERENCES file_folders(id) ON DELETE CASCADE,
+    path TEXT NOT NULL,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+    category VARCHAR(100) NOT NULL,
+    permissions JSONB NOT NULL DEFAULT '{"read": [], "write": [], "delete": []}',
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- File metadata table
+CREATE TABLE file_metadata (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    original_name VARCHAR(255) NOT NULL,
+    file_path TEXT NOT NULL UNIQUE,
+    file_size BIGINT NOT NULL,
+    mime_type VARCHAR(255) NOT NULL,
+    file_type VARCHAR(50) NOT NULL CHECK (file_type IN ('document', 'image', 'video', 'audio', 'archive', 'other')),
+    category VARCHAR(100) NOT NULL CHECK (category IN ('project', 'invoice', 'quotation', 'client', 'template', 'asset', 'backup')),
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+    invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
+    quotation_id UUID REFERENCES quotations(id) ON DELETE CASCADE,
+    folder_id UUID REFERENCES file_folders(id) ON DELETE SET NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    parent_file_id UUID REFERENCES file_metadata(id) ON DELETE CASCADE,
+    tags TEXT[] DEFAULT '{}',
+    description TEXT,
+    visibility VARCHAR(20) NOT NULL DEFAULT 'private' CHECK (visibility IN ('private', 'team', 'client', 'public')),
+    shared_with TEXT[],
+    access_permissions JSONB NOT NULL DEFAULT '{"read": [], "write": [], "delete": []}',
+    virus_scan_status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (virus_scan_status IN ('pending', 'clean', 'infected', 'failed')),
+    thumbnail_path TEXT,
+    preview_path TEXT,
+    metadata JSONB DEFAULT '{}',
+    upload_progress INTEGER NOT NULL DEFAULT 0,
+    upload_status VARCHAR(20) NOT NULL DEFAULT 'uploading' CHECK (upload_status IN ('uploading', 'completed', 'failed', 'processing')),
+    uploaded_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE
+);
+
+-- File share links table
+CREATE TABLE file_share_links (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    file_id UUID NOT NULL REFERENCES file_metadata(id) ON DELETE CASCADE,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    permissions VARCHAR(20) NOT NULL CHECK (permissions IN ('view', 'download', 'edit')),
+    password_protected BOOLEAN NOT NULL DEFAULT FALSE,
+    password_hash VARCHAR(255),
+    expires_at TIMESTAMP WITH TIME ZONE,
+    download_limit INTEGER,
+    download_count INTEGER NOT NULL DEFAULT 0,
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- File activity log
+CREATE TABLE file_activity_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    action VARCHAR(100) NOT NULL,
+    file_id UUID NOT NULL REFERENCES file_metadata(id) ON DELETE CASCADE,
+    user_id VARCHAR(255) NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =========================================
+-- SMTP AND EMAIL SYSTEM TABLES
+-- =========================================
+
+-- Email templates table
+CREATE TABLE email_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL UNIQUE,
+    subject VARCHAR(500) NOT NULL,
+    html_content TEXT NOT NULL,
+    text_content TEXT NOT NULL,
+    variables TEXT[] DEFAULT '{}',
+    category VARCHAR(50) NOT NULL CHECK (category IN ('contact', 'notification', 'marketing', 'system', 'invoice', 'reminder')),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Email messages table
+CREATE TABLE email_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    to_emails TEXT[] NOT NULL,
+    cc_emails TEXT[],
+    bcc_emails TEXT[],
+    from_email VARCHAR(255) NOT NULL,
+    reply_to VARCHAR(255),
+    subject VARCHAR(500) NOT NULL,
+    html_content TEXT NOT NULL,
+    text_content TEXT NOT NULL,
+    template_id UUID REFERENCES email_templates(id) ON DELETE SET NULL,
+    variables JSONB,
+    attachments JSONB,
+    priority VARCHAR(20) NOT NULL DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'cancelled')),
+    scheduled_for TIMESTAMP WITH TIME ZONE,
+    sent_at TIMESTAMP WITH TIME ZONE,
+    error_message TEXT,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    max_retries INTEGER NOT NULL DEFAULT 3,
+    tracking JSONB DEFAULT '{"opens": 0, "clicks": 0, "bounces": 0, "complaints": 0}',
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Contact form submissions table
+CREATE TABLE contact_submissions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone VARCHAR(50),
+    company VARCHAR(255),
+    subject VARCHAR(500) NOT NULL,
+    message TEXT NOT NULL,
+    form_type VARCHAR(50) NOT NULL DEFAULT 'general' CHECK (form_type IN ('general', 'quote_request', 'support', 'partnership', 'career')),
+    source_page VARCHAR(500) NOT NULL,
+    user_agent TEXT NOT NULL,
+    ip_address INET NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'read', 'responded', 'closed', 'spam')),
+    priority VARCHAR(20) NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    assigned_to VARCHAR(255),
+    tags TEXT[] DEFAULT '{}',
+    custom_fields JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Email activity log
+CREATE TABLE email_activity_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    action VARCHAR(100) NOT NULL,
+    email_id UUID REFERENCES email_messages(id) ON DELETE CASCADE,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Contact activity log
+CREATE TABLE contact_activity_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    action VARCHAR(100) NOT NULL,
+    submission_id UUID NOT NULL REFERENCES contact_submissions(id) ON DELETE CASCADE,
+    user_id VARCHAR(255) NOT NULL,
+    metadata JSONB DEFAULT '{}',
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =========================================
+-- ALERT SYSTEM TABLES
+-- =========================================
+
+-- Alerts table
+CREATE TABLE alerts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(50) NOT NULL CHECK (type IN ('info', 'warning', 'error', 'success', 'deadline', 'delay', 'milestone', 'system')),
+    severity VARCHAR(20) NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'acknowledged', 'resolved', 'dismissed')),
+    source VARCHAR(50) NOT NULL CHECK (source IN ('system', 'project', 'calendar', 'invoice', 'user', 'external')),
+    entity_type VARCHAR(50) CHECK (entity_type IN ('project', 'task', 'milestone', 'invoice', 'client', 'user')),
+    entity_id UUID,
+    recipients TEXT[] NOT NULL,
+    channels TEXT[] NOT NULL,
+    conditions JSONB DEFAULT '[]',
+    actions JSONB DEFAULT '[]',
+    triggers JSONB DEFAULT '[]',
+    metadata JSONB DEFAULT '{}',
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    acknowledged_by VARCHAR(255),
+    acknowledged_at TIMESTAMP WITH TIME ZONE,
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Alert rules table
+CREATE TABLE alert_rules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    trigger_type VARCHAR(50) NOT NULL CHECK (trigger_type IN ('schedule', 'event', 'condition', 'threshold', 'deadline')),
+    entity_type VARCHAR(50) NOT NULL CHECK (entity_type IN ('project', 'task', 'milestone', 'invoice', 'client', 'system')),
+    conditions JSONB NOT NULL DEFAULT '[]',
+    actions JSONB NOT NULL DEFAULT '[]',
+    recipients TEXT[] NOT NULL,
+    channels TEXT[] NOT NULL,
+    frequency VARCHAR(50) NOT NULL DEFAULT 'once' CHECK (frequency IN ('once', 'daily', 'weekly', 'on_change', 'escalating')),
+    escalation_rules JSONB,
+    priority INTEGER NOT NULL DEFAULT 5,
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Alert activity log
+CREATE TABLE alert_activity_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    action VARCHAR(100) NOT NULL,
+    alert_id UUID NOT NULL REFERENCES alerts(id) ON DELETE CASCADE,
+    user_id VARCHAR(255) NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =========================================
+-- INDEXES FOR NEW TABLES
+-- =========================================
+
+-- Calendar indexes
+CREATE INDEX idx_calendar_events_start_date ON calendar_events(start_date);
+CREATE INDEX idx_calendar_events_project_id ON calendar_events(project_id);
+CREATE INDEX idx_calendar_events_status ON calendar_events(status);
+CREATE INDEX idx_calendar_events_event_type ON calendar_events(event_type);
+CREATE INDEX idx_calendar_reminders_reminder_time ON calendar_reminders(reminder_time);
+
+-- File storage indexes
+CREATE INDEX idx_file_metadata_category ON file_metadata(category);
+CREATE INDEX idx_file_metadata_project_id ON file_metadata(project_id);
+CREATE INDEX idx_file_metadata_folder_id ON file_metadata(folder_id);
+CREATE INDEX idx_file_metadata_uploaded_by ON file_metadata(uploaded_by);
+CREATE INDEX idx_file_metadata_file_type ON file_metadata(file_type);
+CREATE INDEX idx_file_folders_parent_folder_id ON file_folders(parent_folder_id);
+
+-- Email and contact indexes
+CREATE INDEX idx_contact_submissions_status ON contact_submissions(status);
+CREATE INDEX idx_contact_submissions_form_type ON contact_submissions(form_type);
+CREATE INDEX idx_contact_submissions_created_at ON contact_submissions(created_at);
+CREATE INDEX idx_email_messages_status ON email_messages(status);
+CREATE INDEX idx_email_messages_scheduled_for ON email_messages(scheduled_for);
+
+-- Alert indexes
+CREATE INDEX idx_alerts_status ON alerts(status);
+CREATE INDEX idx_alerts_severity ON alerts(severity);
+CREATE INDEX idx_alerts_entity ON alerts(entity_type, entity_id);
+CREATE INDEX idx_alerts_created_at ON alerts(created_at);
+CREATE INDEX idx_alert_rules_is_active ON alert_rules(is_active);
+
+-- =========================================
+-- UPDATE TRIGGERS FOR NEW TABLES
+-- =========================================
+
+-- Calendar events trigger
+CREATE TRIGGER update_calendar_events_updated_at 
+    BEFORE UPDATE ON calendar_events 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- File folders trigger
+CREATE TRIGGER update_file_folders_updated_at 
+    BEFORE UPDATE ON file_folders 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- File metadata trigger
+CREATE TRIGGER update_file_metadata_updated_at 
+    BEFORE UPDATE ON file_metadata 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Email templates trigger
+CREATE TRIGGER update_email_templates_updated_at 
+    BEFORE UPDATE ON email_templates 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Email messages trigger
+CREATE TRIGGER update_email_messages_updated_at 
+    BEFORE UPDATE ON email_messages 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Contact submissions trigger
+CREATE TRIGGER update_contact_submissions_updated_at 
+    BEFORE UPDATE ON contact_submissions 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Alerts trigger
+CREATE TRIGGER update_alerts_updated_at 
+    BEFORE UPDATE ON alerts 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Alert rules trigger
+CREATE TRIGGER update_alert_rules_updated_at 
+    BEFORE UPDATE ON alert_rules 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- =========================================
+-- DEFAULT EMAIL TEMPLATES
+-- =========================================
+
+-- Insert default email templates
+INSERT INTO email_templates (name, subject, html_content, text_content, variables, category, created_by) VALUES
+('contact-acknowledgment', 'Thank you for contacting us - {{name}}', 
+ '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #ea580c;">Thank you for your message!</h2>
+    <p>Dear {{name}},</p>
+    <p>We have received your message regarding "<strong>{{subject}}</strong>" and will respond within 24 hours.</p>
+    <div style="background-color: #fff7ed; padding: 15px; border-left: 4px solid #ea580c; margin: 20px 0;">
+        <p><strong>Reference ID:</strong> {{reference_id}}</p>
+        <p><strong>Form Type:</strong> {{form_type}}</p>
+    </div>
+    <p>Best regards,<br>
+    <strong>The Akibeks Team</strong><br>
+    Construction Excellence Since 2020</p>
+ </div>',
+ 'Thank you for your message! Dear {{name}}, We have received your message regarding "{{subject}}" and will respond within 24 hours. Reference ID: {{reference_id}} Form Type: {{form_type}} Best regards, The Akibeks Team - Construction Excellence Since 2020',
+ ARRAY['name', 'subject', 'reference_id', 'form_type'], 'contact', 'system'),
+
+('admin-contact-notification', 'New Contact Form Submission - {{name}}',
+ '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #ea580c;">New Contact Form Submission</h2>
+    <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <p><strong>From:</strong> {{name}} ({{email}})</p>
+        <p><strong>Phone:</strong> {{phone}}</p>
+        <p><strong>Company:</strong> {{company}}</p>
+        <p><strong>Subject:</strong> {{subject}}</p>
+        <p><strong>Type:</strong> <span style="background-color: #ea580c; color: white; padding: 4px 8px; border-radius: 4px;">{{form_type}}</span></p>
+        <p><strong>Priority:</strong> <span style="background-color: #dc2626; color: white; padding: 4px 8px; border-radius: 4px;">{{priority}}</span></p>
+    </div>
+    <div style="background-color: #fff7ed; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p><strong>Message:</strong></p>
+        <p>{{message}}</p>
+    </div>
+    <p><a href="{{admin_url}}" style="background-color: #ea580c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View in Admin Panel</a></p>
+ </div>',
+ 'New Contact Form Submission From: {{name}} ({{email}}) Phone: {{phone}} Company: {{company}} Subject: {{subject}} Type: {{form_type}} Priority: {{priority}} Message: {{message}} View in Admin Panel: {{admin_url}}',
+ ARRAY['name', 'email', 'phone', 'company', 'subject', 'form_type', 'priority', 'message', 'admin_url'], 'notification', 'system'),
+
+('alert-notification', 'System Alert: {{alert_title}}',
+ '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #dc2626;">System Alert</h2>
+    <div style="background-color: #fef2f2; padding: 20px; border-left: 4px solid #dc2626; margin: 20px 0;">
+        <p><strong>Type:</strong> {{alert_type}}</p>
+        <p><strong>Severity:</strong> <span style="background-color: #dc2626; color: white; padding: 4px 8px; border-radius: 4px;">{{alert_severity}}</span></p>
+        <p><strong>Message:</strong></p>
+        <p>{{alert_message}}</p>
+    </div>
+    <p><a href="{{alert_url}}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Alert Details</a></p>
+ </div>',
+ 'System Alert Type: {{alert_type}} Severity: {{alert_severity}} Message: {{alert_message}} View Alert: {{alert_url}}',
+ ARRAY['alert_title', 'alert_type', 'alert_severity', 'alert_message', 'alert_url'], 'system', 'system')
+ON CONFLICT (name) DO NOTHING;
