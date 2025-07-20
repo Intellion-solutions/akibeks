@@ -411,6 +411,47 @@ const AdminDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Admin Personnel Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Admin Personnel
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">5</div>
+                  <p className="text-sm text-muted-foreground">Active Admins</p>
+                </div>
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">12</div>
+                  <p className="text-sm text-muted-foreground">Login Sessions</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => navigate('/admin/personnel')}
+                  className="flex-1"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Manage Personnel
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/admin/personnel?tab=security')}
+                  className="flex-1"
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Security Events
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Recent Activity */}
         <Card>
           <CardHeader>

@@ -25,6 +25,7 @@ import AdminLetterheads from "@/pages/admin/AdminLetterheads";
 import AdminBackup from "@/pages/admin/AdminBackup";
 import AdminTestimonials from "@/pages/admin/AdminTestimonials";
 import AdminQuotations from "@/pages/admin/AdminQuotations";
+import AdminPersonnel from "@/pages/admin/AdminPersonnel";
 
 // Public Pages
 import Index from "@/pages/Index";
@@ -136,6 +137,7 @@ const App = () => (
                 <Route path="/admin/letterheads" element={<AdminLetterheads />} />
                 <Route path="/admin/backup" element={<AdminBackup />} />
                 <Route path="/admin/testimonials" element={<AdminTestimonials />} />
+                <Route path="/admin/personnel" element={<AdminPersonnel />} />
                 
                 {/* 404 Page */}
                 <Route path="*" element={<NotFound />} />

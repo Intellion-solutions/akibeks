@@ -668,3 +668,448 @@ CREATE INDEX IF NOT EXISTS idx_project_automations_project_id ON project_automat
 CREATE INDEX IF NOT EXISTS idx_project_automations_active ON project_automations(is_active);
 CREATE INDEX IF NOT EXISTS idx_team_collaborations_project_id ON team_collaborations(project_id);
 CREATE INDEX IF NOT EXISTS idx_smart_workflows_category ON smart_workflows(template_category);
+
+-- =====================================================
+-- ADMIN PERSONNEL MANAGEMENT SYSTEM TABLES
+-- =====================================================
+
+-- Enhanced Users Table with Admin Personnel Features
+DO $$
+BEGIN
+    -- Add admin-specific columns to existing users table
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='password_hash') THEN
+        ALTER TABLE users ADD COLUMN password_hash VARCHAR(255);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='salt') THEN
+        ALTER TABLE users ADD COLUMN salt VARCHAR(255);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='account_locked') THEN
+        ALTER TABLE users ADD COLUMN account_locked BOOLEAN DEFAULT false;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='account_locked_reason') THEN
+        ALTER TABLE users ADD COLUMN account_locked_reason TEXT;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='account_locked_until') THEN
+        ALTER TABLE users ADD COLUMN account_locked_until TIMESTAMP;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='failed_login_attempts') THEN
+        ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='last_login') THEN
+        ALTER TABLE users ADD COLUMN last_login TIMESTAMP;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='last_login_ip') THEN
+        ALTER TABLE users ADD COLUMN last_login_ip INET;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='password_changed_at') THEN
+        ALTER TABLE users ADD COLUMN password_changed_at TIMESTAMP DEFAULT NOW();
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='two_factor_enabled') THEN
+        ALTER TABLE users ADD COLUMN two_factor_enabled BOOLEAN DEFAULT false;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='two_factor_secret') THEN
+        ALTER TABLE users ADD COLUMN two_factor_secret VARCHAR(255);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='email_verified') THEN
+        ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT false;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='phone_verified') THEN
+        ALTER TABLE users ADD COLUMN phone_verified BOOLEAN DEFAULT false;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='department') THEN
+        ALTER TABLE users ADD COLUMN department VARCHAR(100);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='location') THEN
+        ALTER TABLE users ADD COLUMN location VARCHAR(100);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='metadata') THEN
+        ALTER TABLE users ADD COLUMN metadata JSONB DEFAULT '{}';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='created_by') THEN
+        ALTER TABLE users ADD COLUMN created_by UUID REFERENCES users(id);
+    END IF;
+END $$;
+
+-- User Sessions Table
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_token VARCHAR(255) UNIQUE NOT NULL,
+    refresh_token VARCHAR(255) UNIQUE,
+    ip_address INET NOT NULL,
+    user_agent TEXT,
+    device_info JSONB DEFAULT '{}',
+    location_info JSONB DEFAULT '{}',
+    is_active BOOLEAN DEFAULT true,
+    expires_at TIMESTAMP NOT NULL,
+    last_activity TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Roles Table
+CREATE TABLE IF NOT EXISTS roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(50) UNIQUE NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    level INTEGER NOT NULL DEFAULT 1,
+    is_active BOOLEAN DEFAULT true,
+    permissions JSONB DEFAULT '[]',
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Permissions Table
+CREATE TABLE IF NOT EXISTS permissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) UNIQUE NOT NULL,
+    display_name VARCHAR(150) NOT NULL,
+    description TEXT,
+    resource VARCHAR(100) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    conditions JSONB DEFAULT '{}',
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- User Permissions Table
+CREATE TABLE IF NOT EXISTS user_permissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+    granted_by UUID REFERENCES users(id),
+    granted_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP,
+    conditions JSONB DEFAULT '{}',
+    UNIQUE(user_id, permission_id)
+);
+
+-- Security Events Table
+CREATE TABLE IF NOT EXISTS security_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    session_id UUID REFERENCES user_sessions(id),
+    event_type VARCHAR(50) NOT NULL,
+    event_subtype VARCHAR(50),
+    description TEXT NOT NULL,
+    severity VARCHAR(20) NOT NULL DEFAULT 'medium',
+    ip_address INET,
+    user_agent TEXT,
+    device_info JSONB DEFAULT '{}',
+    location_info JSONB DEFAULT '{}',
+    details JSONB DEFAULT '{}',
+    resolved BOOLEAN DEFAULT false,
+    resolved_by UUID REFERENCES users(id),
+    resolved_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Audit Logs Table
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    session_id UUID REFERENCES user_sessions(id),
+    action VARCHAR(100) NOT NULL,
+    resource_type VARCHAR(50) NOT NULL,
+    resource_id UUID,
+    old_values JSONB,
+    new_values JSONB,
+    ip_address INET,
+    user_agent TEXT,
+    success BOOLEAN DEFAULT true,
+    error_message TEXT,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Queue Jobs Table
+CREATE TABLE IF NOT EXISTS queue_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    type VARCHAR(100) NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 3,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    data JSONB NOT NULL DEFAULT '{}',
+    metadata JSONB NOT NULL DEFAULT '{}',
+    dependencies UUID[] DEFAULT '{}',
+    tags VARCHAR(50)[] DEFAULT '{}',
+    scheduled_at TIMESTAMP DEFAULT NOW(),
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    worker_id VARCHAR(255),
+    error_message TEXT,
+    retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Error Logs Table
+CREATE TABLE IF NOT EXISTS error_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    message TEXT NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    severity VARCHAR(20) NOT NULL,
+    error_code VARCHAR(50),
+    details JSONB DEFAULT '{}',
+    user_id UUID REFERENCES users(id),
+    session_id UUID REFERENCES user_sessions(id),
+    ip_address INET,
+    user_agent TEXT,
+    stack_trace TEXT,
+    context JSONB DEFAULT '{}',
+    resolved BOOLEAN DEFAULT false,
+    resolved_by UUID REFERENCES users(id),
+    resolved_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Workflows Table
+CREATE TABLE IF NOT EXISTS workflows (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    version INTEGER DEFAULT 1,
+    is_active BOOLEAN DEFAULT true,
+    states JSONB NOT NULL DEFAULT '[]',
+    transitions JSONB NOT NULL DEFAULT '[]',
+    configuration JSONB DEFAULT '{}',
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Workflow Instances Table
+CREATE TABLE IF NOT EXISTS workflow_instances (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workflow_id UUID NOT NULL REFERENCES workflows(id),
+    entity_type VARCHAR(100) NOT NULL,
+    entity_id UUID NOT NULL,
+    current_state_id VARCHAR(100) NOT NULL,
+    initiated_by UUID REFERENCES users(id),
+    context JSONB DEFAULT '{}',
+    metadata JSONB DEFAULT '{}',
+    started_at TIMESTAMP DEFAULT NOW(),
+    completed_at TIMESTAMP,
+    is_active BOOLEAN DEFAULT true
+);
+
+-- Workflow Events Table
+CREATE TABLE IF NOT EXISTS workflow_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workflow_instance_id UUID NOT NULL REFERENCES workflow_instances(id),
+    event_type VARCHAR(50) NOT NULL,
+    from_state_id VARCHAR(100),
+    to_state_id VARCHAR(100),
+    triggered_by UUID REFERENCES users(id),
+    event_data JSONB DEFAULT '{}',
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Approval Requests Table
+CREATE TABLE IF NOT EXISTS approval_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workflow_instance_id UUID NOT NULL REFERENCES workflow_instances(id),
+    requester_id UUID NOT NULL REFERENCES users(id),
+    approver_id UUID NOT NULL REFERENCES users(id),
+    approval_type VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    priority INTEGER DEFAULT 3,
+    deadline TIMESTAMP,
+    approval_data JSONB DEFAULT '{}',
+    response_data JSONB DEFAULT '{}',
+    approved_at TIMESTAMP,
+    comments TEXT,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- =====================================================
+-- INDEXES FOR ADMIN PERSONNEL MANAGEMENT
+-- =====================================================
+
+-- User management indexes
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
+CREATE INDEX IF NOT EXISTS idx_users_locked ON users(account_locked);
+CREATE INDEX IF NOT EXISTS idx_users_department ON users(department);
+CREATE INDEX IF NOT EXISTS idx_users_location ON users(location);
+CREATE INDEX IF NOT EXISTS idx_users_created_by ON users(created_by);
+CREATE INDEX IF NOT EXISTS idx_users_last_login ON users(last_login);
+
+-- Session management indexes
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions(session_token);
+CREATE INDEX IF NOT EXISTS idx_sessions_active ON user_sessions(is_active);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_ip ON user_sessions(ip_address);
+CREATE INDEX IF NOT EXISTS idx_sessions_last_activity ON user_sessions(last_activity);
+
+-- Role and permission indexes
+CREATE INDEX IF NOT EXISTS idx_roles_name ON roles(name);
+CREATE INDEX IF NOT EXISTS idx_roles_level ON roles(level);
+CREATE INDEX IF NOT EXISTS idx_roles_active ON roles(is_active);
+CREATE INDEX IF NOT EXISTS idx_permissions_resource ON permissions(resource);
+CREATE INDEX IF NOT EXISTS idx_permissions_action ON permissions(action);
+CREATE INDEX IF NOT EXISTS idx_permissions_active ON permissions(is_active);
+CREATE INDEX IF NOT EXISTS idx_user_permissions_user_id ON user_permissions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_permissions_permission_id ON user_permissions(permission_id);
+CREATE INDEX IF NOT EXISTS idx_user_permissions_granted_by ON user_permissions(granted_by);
+
+-- Security event indexes
+CREATE INDEX IF NOT EXISTS idx_security_events_user_id ON security_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_security_events_session_id ON security_events(session_id);
+CREATE INDEX IF NOT EXISTS idx_security_events_type ON security_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_security_events_severity ON security_events(severity);
+CREATE INDEX IF NOT EXISTS idx_security_events_created ON security_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_security_events_resolved ON security_events(resolved);
+CREATE INDEX IF NOT EXISTS idx_security_events_ip ON security_events(ip_address);
+
+-- Audit log indexes
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_session_id ON audit_logs(session_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_resource_type ON audit_logs(resource_type);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_resource_id ON audit_logs(resource_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_success ON audit_logs(success);
+
+-- Queue job indexes
+CREATE INDEX IF NOT EXISTS idx_queue_jobs_status ON queue_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_queue_jobs_priority ON queue_jobs(priority);
+CREATE INDEX IF NOT EXISTS idx_queue_jobs_type ON queue_jobs(type);
+CREATE INDEX IF NOT EXISTS idx_queue_jobs_scheduled ON queue_jobs(scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_queue_jobs_worker ON queue_jobs(worker_id);
+CREATE INDEX IF NOT EXISTS idx_queue_jobs_created ON queue_jobs(created_at);
+
+-- Error log indexes
+CREATE INDEX IF NOT EXISTS idx_error_logs_category ON error_logs(category);
+CREATE INDEX IF NOT EXISTS idx_error_logs_severity ON error_logs(severity);
+CREATE INDEX IF NOT EXISTS idx_error_logs_created ON error_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_error_logs_resolved ON error_logs(resolved);
+CREATE INDEX IF NOT EXISTS idx_error_logs_user_id ON error_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_error_logs_session_id ON error_logs(session_id);
+
+-- Workflow indexes
+CREATE INDEX IF NOT EXISTS idx_workflows_name ON workflows(name);
+CREATE INDEX IF NOT EXISTS idx_workflows_active ON workflows(is_active);
+CREATE INDEX IF NOT EXISTS idx_workflows_created_by ON workflows(created_by);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_workflow_id ON workflow_instances(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_entity ON workflow_instances(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_state ON workflow_instances(current_state_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_active ON workflow_instances(is_active);
+CREATE INDEX IF NOT EXISTS idx_workflow_events_instance_id ON workflow_events(workflow_instance_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_events_type ON workflow_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_workflow_events_created ON workflow_events(created_at);
+
+-- Approval request indexes
+CREATE INDEX IF NOT EXISTS idx_approval_requests_workflow_instance ON approval_requests(workflow_instance_id);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_requester ON approval_requests(requester_id);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_approver ON approval_requests(approver_id);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_status ON approval_requests(status);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_priority ON approval_requests(priority);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_deadline ON approval_requests(deadline);
+
+-- =====================================================
+-- DEFAULT DATA FOR ADMIN PERSONNEL MANAGEMENT
+-- =====================================================
+
+-- Insert default roles
+INSERT INTO roles (name, display_name, description, level) VALUES
+('super_admin', 'Super Administrator', 'Full system access with all permissions', 1),
+('admin', 'Administrator', 'Administrative access with most permissions', 2),
+('manager', 'Manager', 'Management access with limited permissions', 3),
+('operator', 'Operator', 'Operational access with basic permissions', 4)
+ON CONFLICT (name) DO NOTHING;
+
+-- Insert default permissions
+INSERT INTO permissions (name, display_name, description, resource, action) VALUES
+('users.create', 'Create Users', 'Create new user accounts', 'users', 'create'),
+('users.read', 'Read Users', 'View user information', 'users', 'read'),
+('users.update', 'Update Users', 'Modify user accounts', 'users', 'update'),
+('users.delete', 'Delete Users', 'Remove user accounts', 'users', 'delete'),
+('roles.manage', 'Manage Roles', 'Manage user roles and permissions', 'roles', 'manage'),
+('security.monitor', 'Monitor Security', 'View security events and logs', 'security', 'monitor'),
+('security.respond', 'Respond to Security', 'Respond to security incidents', 'security', 'respond'),
+('system.configure', 'Configure System', 'Modify system configuration', 'system', 'configure'),
+('audit.view', 'View Audit Logs', 'Access audit trail information', 'audit', 'view'),
+('workflow.manage', 'Manage Workflows', 'Create and modify workflows', 'workflow', 'manage'),
+('queue.monitor', 'Monitor Queue', 'View and manage job queues', 'queue', 'monitor'),
+('personnel.manage', 'Manage Personnel', 'Full admin personnel management', 'personnel', 'manage')
+ON CONFLICT (name) DO NOTHING;
+
+-- Create triggers for automatic timestamps
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Apply update triggers to relevant tables
+DO $$
+BEGIN
+    -- Users table
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_updated_at') THEN
+        CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    
+    -- Roles table
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_roles_updated_at') THEN
+        CREATE TRIGGER update_roles_updated_at BEFORE UPDATE ON roles
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    
+    -- Permissions table
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_permissions_updated_at') THEN
+        CREATE TRIGGER update_permissions_updated_at BEFORE UPDATE ON permissions
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    
+    -- Queue jobs table
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_queue_jobs_updated_at') THEN
+        CREATE TRIGGER update_queue_jobs_updated_at BEFORE UPDATE ON queue_jobs
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    
+    -- Error logs table
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_error_logs_updated_at') THEN
+        CREATE TRIGGER update_error_logs_updated_at BEFORE UPDATE ON error_logs
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    
+    -- Workflows table
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_workflows_updated_at') THEN
+        CREATE TRIGGER update_workflows_updated_at BEFORE UPDATE ON workflows
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    
+    -- Approval requests table
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_approval_requests_updated_at') THEN
+        CREATE TRIGGER update_approval_requests_updated_at BEFORE UPDATE ON approval_requests
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;
