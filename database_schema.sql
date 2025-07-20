@@ -376,3 +376,295 @@ INSERT INTO projects (name, description, status, priority, client_id, manager_id
  (SELECT id FROM clients WHERE name = 'Innovation Labs' LIMIT 1),
  (SELECT id FROM users WHERE role = 'admin' LIMIT 1),
  100000.00, '2024-01-01', '2024-06-30');
+
+-- Enhanced schema for advanced features
+
+-- Content Management Tables
+CREATE TABLE IF NOT EXISTS content_sections (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    page VARCHAR(100) NOT NULL,
+    section VARCHAR(100) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content JSONB NOT NULL,
+    media_urls JSONB DEFAULT '[]',
+    is_published BOOLEAN DEFAULT false,
+    sort_order INTEGER DEFAULT 0,
+    metadata JSONB DEFAULT '{}',
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS services_content (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    icon VARCHAR(100),
+    features JSONB DEFAULT '[]',
+    pricing JSONB DEFAULT '{}',
+    gallery JSONB DEFAULT '[]',
+    testimonials JSONB DEFAULT '[]',
+    is_featured BOOLEAN DEFAULT false,
+    is_active BOOLEAN DEFAULT true,
+    category VARCHAR(100),
+    tags JSONB DEFAULT '[]',
+    seo_meta JSONB DEFAULT '{}',
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS projects_showcase (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    client_name VARCHAR(255),
+    industry VARCHAR(100),
+    project_type VARCHAR(100),
+    duration VARCHAR(100),
+    team_size INTEGER,
+    technologies JSONB DEFAULT '[]',
+    challenges JSONB DEFAULT '[]',
+    solutions JSONB DEFAULT '[]',
+    results JSONB DEFAULT '[]',
+    images JSONB DEFAULT '[]',
+    video_url VARCHAR(500),
+    case_study_url VARCHAR(500),
+    is_featured BOOLEAN DEFAULT false,
+    is_active BOOLEAN DEFAULT true,
+    completion_date DATE,
+    budget_range VARCHAR(100),
+    testimonial JSONB DEFAULT '{}',
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS media_library (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    filename VARCHAR(255) NOT NULL,
+    original_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size INTEGER,
+    mime_type VARCHAR(100),
+    category VARCHAR(100),
+    uploaded_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS seo_settings (
+    page VARCHAR(100) PRIMARY KEY,
+    title VARCHAR(255),
+    description TEXT,
+    keywords JSONB DEFAULT '[]',
+    og_title VARCHAR(255),
+    og_description TEXT,
+    og_image VARCHAR(500),
+    twitter_title VARCHAR(255),
+    twitter_description TEXT,
+    twitter_image VARCHAR(500),
+    canonical_url VARCHAR(500),
+    robots VARCHAR(100) DEFAULT 'index,follow',
+    updated_by UUID REFERENCES users(id),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Enhanced Task Management
+CREATE TABLE IF NOT EXISTS project_phases (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    estimated_duration INTEGER, -- in days
+    order_index INTEGER NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending',
+    start_date DATE,
+    end_date DATE,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add enhanced task columns if they don't exist
+DO $$ 
+BEGIN
+    -- Add new columns to tasks table
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='phase_id') THEN
+        ALTER TABLE tasks ADD COLUMN phase_id UUID REFERENCES project_phases(id);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='type') THEN
+        ALTER TABLE tasks ADD COLUMN type VARCHAR(50) DEFAULT 'general';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='estimated_hours') THEN
+        ALTER TABLE tasks ADD COLUMN estimated_hours DECIMAL(8,2) DEFAULT 0;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='actual_hours') THEN
+        ALTER TABLE tasks ADD COLUMN actual_hours DECIMAL(8,2) DEFAULT 0;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='tags') THEN
+        ALTER TABLE tasks ADD COLUMN tags JSONB DEFAULT '[]';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='dependencies') THEN
+        ALTER TABLE tasks ADD COLUMN dependencies JSONB DEFAULT '[]';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='subtasks') THEN
+        ALTER TABLE tasks ADD COLUMN subtasks JSONB DEFAULT '[]';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='attachments') THEN
+        ALTER TABLE tasks ADD COLUMN attachments JSONB DEFAULT '[]';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='task_comments') THEN
+        ALTER TABLE tasks ADD COLUMN task_comments JSONB DEFAULT '[]';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='milestone_id') THEN
+        ALTER TABLE tasks ADD COLUMN milestone_id UUID REFERENCES milestones(id);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='automation_triggers') THEN
+        ALTER TABLE tasks ADD COLUMN automation_triggers JSONB DEFAULT '[]';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='checklist_items') THEN
+        ALTER TABLE tasks ADD COLUMN checklist_items JSONB DEFAULT '[]';
+    END IF;
+END $$;
+
+-- Advanced Automations
+CREATE TABLE IF NOT EXISTS project_automations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    triggers JSONB NOT NULL,
+    actions JSONB NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_executed TIMESTAMP,
+    execution_count INTEGER DEFAULT 0,
+    success_rate DECIMAL(5,2) DEFAULT 100,
+    tags JSONB DEFAULT '[]',
+    category VARCHAR(50) DEFAULT 'workflow'
+);
+
+-- Team Collaboration
+CREATE TABLE IF NOT EXISTS team_collaborations (
+    id VARCHAR(50) PRIMARY KEY,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL,
+    participants JSONB NOT NULL,
+    shared_resources JSONB NOT NULL,
+    settings JSONB NOT NULL,
+    analytics JSONB DEFAULT '{"views": 0, "downloads": 0, "comments": 0}',
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP
+);
+
+-- Smart Workflows
+CREATE TABLE IF NOT EXISTS smart_workflows (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    template_category VARCHAR(50) NOT NULL,
+    phases JSONB NOT NULL,
+    dependencies JSONB DEFAULT '[]',
+    variables JSONB DEFAULT '[]',
+    estimated_duration INTEGER,
+    team_roles_required JSONB DEFAULT '[]',
+    client_involvement_points JSONB DEFAULT '[]',
+    approval_gates JSONB DEFAULT '[]',
+    risk_factors JSONB DEFAULT '[]',
+    success_metrics JSONB DEFAULT '[]',
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    usage_count INTEGER DEFAULT 0,
+    rating DECIMAL(3,2) DEFAULT 0
+);
+
+-- Enhanced quotations and invoices support
+DO $$ 
+BEGIN
+    -- Add enhanced columns to quotations table
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='quotations' AND column_name='sections') THEN
+        ALTER TABLE quotations ADD COLUMN sections JSONB DEFAULT '[]';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='quotations' AND column_name='quote_milestones') THEN
+        ALTER TABLE quotations ADD COLUMN quote_milestones JSONB DEFAULT '[]';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='quotations' AND column_name='assumptions') THEN
+        ALTER TABLE quotations ADD COLUMN assumptions JSONB DEFAULT '[]';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='quotations' AND column_name='exclusions') THEN
+        ALTER TABLE quotations ADD COLUMN exclusions JSONB DEFAULT '[]';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='quotations' AND column_name='executive_summary') THEN
+        ALTER TABLE quotations ADD COLUMN executive_summary TEXT;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='quotations' AND column_name='value_proposition') THEN
+        ALTER TABLE quotations ADD COLUMN value_proposition TEXT;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='quotations' AND column_name='project_scope') THEN
+        ALTER TABLE quotations ADD COLUMN project_scope TEXT;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='quotations' AND column_name='template') THEN
+        ALTER TABLE quotations ADD COLUMN template VARCHAR(50) DEFAULT 'professional';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='quotations' AND column_name='color_scheme') THEN
+        ALTER TABLE quotations ADD COLUMN color_scheme VARCHAR(50) DEFAULT 'blue';
+    END IF;
+    
+    -- Add enhanced columns to invoices table
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invoices' AND column_name='company_logo') THEN
+        ALTER TABLE invoices ADD COLUMN company_logo TEXT;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invoices' AND column_name='company_name') THEN
+        ALTER TABLE invoices ADD COLUMN company_name VARCHAR(255);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invoices' AND column_name='template') THEN
+        ALTER TABLE invoices ADD COLUMN template VARCHAR(50) DEFAULT 'modern';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invoices' AND column_name='color_scheme') THEN
+        ALTER TABLE invoices ADD COLUMN color_scheme VARCHAR(50) DEFAULT 'blue';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invoices' AND column_name='show_logo') THEN
+        ALTER TABLE invoices ADD COLUMN show_logo BOOLEAN DEFAULT true;
+    END IF;
+END $$;
+
+-- Additional indexes for enhanced features
+CREATE INDEX IF NOT EXISTS idx_content_sections_page ON content_sections(page);
+CREATE INDEX IF NOT EXISTS idx_content_sections_published ON content_sections(is_published);
+CREATE INDEX IF NOT EXISTS idx_services_content_category ON services_content(category);
+CREATE INDEX IF NOT EXISTS idx_services_content_featured ON services_content(is_featured);
+CREATE INDEX IF NOT EXISTS idx_projects_showcase_industry ON projects_showcase(industry);
+CREATE INDEX IF NOT EXISTS idx_projects_showcase_featured ON projects_showcase(is_featured);
+CREATE INDEX IF NOT EXISTS idx_media_library_category ON media_library(category);
+CREATE INDEX IF NOT EXISTS idx_project_phases_project_id ON project_phases(project_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_phase_id ON tasks(phase_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_milestone_id ON tasks(milestone_id);
+CREATE INDEX IF NOT EXISTS idx_project_automations_project_id ON project_automations(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_automations_active ON project_automations(is_active);
+CREATE INDEX IF NOT EXISTS idx_team_collaborations_project_id ON team_collaborations(project_id);
+CREATE INDEX IF NOT EXISTS idx_smart_workflows_category ON smart_workflows(template_category);
