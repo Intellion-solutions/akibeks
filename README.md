@@ -1,737 +1,445 @@
-# AKIBEKS Engineering Solutions - Complete Project Management System
+# Professional Project Management Platform
 
-[![React](https://img.shields.io/badge/React-18.2.0-blue.svg)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-4.4-646CFF.svg)](https://vitejs.dev/)
-[![Supabase](https://img.shields.io/badge/Supabase-2.38-green.svg)](https://supabase.com/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-3.3-38B2AC.svg)](https://tailwindcss.com/)
+A comprehensive project management system built with React, TypeScript, and PostgreSQL. This platform provides everything you need to manage projects efficiently, from planning to delivery, with features including project tracking, invoicing, time management, analytics, and team collaboration tools.
 
-## 🏗️ Overview
+## 🚀 Features
 
-AKIBEKS Engineering Solutions is a comprehensive project management system designed for construction and engineering companies. It provides a complete suite of tools for project management, client collaboration, invoice management, quotation handling, and team coordination.
+### 📊 **Project Management**
+- **Comprehensive Project Tracking** - Monitor project progress with milestones, deadlines, and team collaboration
+- **Task Management** - Create, assign, and track tasks with priority levels and due dates
+- **Team Collaboration** - Real-time collaboration tools and communication features
+- **Project Analytics** - Detailed insights and reporting for data-driven decisions
+- **Resource Planning** - Efficient allocation and management of project resources
 
-### 🎯 Key Features
+### 💰 **Financial Management**
+- **Smart Invoicing** - Automated invoice generation with customizable templates
+- **Quotation System** - Professional quotation creation and management
+- **Payment Tracking** - Monitor payments and outstanding amounts
+- **Budget Management** - Track project budgets and expenses
+- **Financial Reports** - Comprehensive financial analytics and reporting
 
-#### 📊 **Project Management Dashboard**
-- **Advanced Project Tracking**: Real-time progress monitoring with visual indicators
-- **Project Health Analytics**: Automated health scoring based on budget, time, and completion metrics
-- **Multi-view Task Management**: Kanban boards, list views, and Gantt chart support
-- **Resource Management**: Track team members, equipment, and materials
-- **Time Tracking**: Billable and non-billable time logging with task assignment
-- **Risk Management**: Identify, assess, and mitigate project risks
-- **Comprehensive Reporting**: Budget analysis, task distribution, and progress reports
+### ⏰ **Time & Resource Tracking**
+- **Accurate Time Logging** - Detailed time tracking for better project cost management
+- **Billable Hours Tracking** - Separate billable and non-billable time entries
+- **Resource Utilization** - Monitor team performance and productivity
+- **Automated Timesheets** - Generate detailed timesheets for payroll and billing
 
-#### 💰 **Invoice Management System**
-- **Professional Invoice Generation**: Multiple template designs with company branding
-- **Payment Tracking**: Real-time payment status and balance monitoring
-- **Client Portal Access**: Secure invoice viewing via email or invoice number
-- **PDF Generation**: High-quality, professional invoice documents
-- **Status Management**: Draft, sent, paid, overdue, and cancelled statuses
-- **Search & Filter**: Advanced filtering by status, client, and date ranges
+### 👥 **User & Client Management**
+- **User Roles & Permissions** - Admin, Manager, and User roles with appropriate access levels
+- **Client Portal** - Dedicated portals for seamless client communication
+- **Team Management** - Organize teams and assign project roles
+- **User Analytics** - Track user activity and performance metrics
 
-#### 📋 **Quotation Management**
-- **Online Quote Requests**: Comprehensive project quotation request forms
-- **Quote Status Tracking**: Monitor quotation lifecycle from draft to acceptance
-- **Professional Quote PDFs**: Multiple design templates with validity tracking
-- **Digital Acceptance**: Built-in signature areas and acceptance workflow
-- **Validity Management**: Automatic expiration warnings and status updates
-- **Client Communication**: Direct quote acceptance and rejection features
+### 🎨 **Template Designer**
+- **Editable Templates** - Create and customize invoice and quotation templates
+- **Live Preview** - Real-time preview with scaling for different devices
+- **Template Gallery** - Pre-built templates with professional designs
+- **Brand Customization** - Add company logos, colors, and branding elements
 
-#### 👥 **Team Collaboration**
-- **Real-time Chat**: Project-specific messaging with file sharing
-- **Meeting Scheduling**: Integrated calendar and video conferencing
-- **File Management**: Centralized document storage with version control
-- **Notifications**: Real-time project updates and alerts
-- **Team Status**: Online/offline status tracking
-- **Communication Tools**: Direct messaging, voice, and video calls
+### 📈 **Analytics & Reporting**
+- **Real-time Dashboard** - Live insights with KPIs and performance metrics
+- **Custom Reports** - Generate detailed reports for projects, finances, and team performance
+- **Data Visualization** - Charts and graphs for better data understanding
+- **Export Capabilities** - Export reports in various formats (PDF, CSV, Excel)
 
-#### 🏢 **Client Portal**
-- **Unified Dashboard**: Single access point for all client services
-- **Secure Access**: Email-based authentication with project number verification
-- **Mobile Responsive**: Full functionality on all device types
-- **Help & Support**: Integrated support system with multiple contact methods
-- **Document Management**: Easy access to all project documents
+### 🔧 **Advanced Features**
+- **Workflow Automation** - Streamline repetitive tasks with intelligent automation
+- **Notification System** - Real-time notifications for important updates
+- **Document Management** - Centralized document storage and sharing
+- **Backup & Security** - Automated backups with enterprise-level security
 
-#### ⚙️ **Admin Management**
-- **User Management**: Role-based access control and permissions
-- **Project Administration**: Complete project lifecycle management
-- **Template Management**: Customizable invoice and quotation templates
-- **Analytics & Reporting**: Comprehensive business intelligence dashboard
-- **System Configuration**: Company settings and integration management
+## 🛠️ Technology Stack
 
-## 🚀 Quick Start
+### **Frontend**
+- **React 18** - Modern UI framework with hooks and functional components
+- **TypeScript** - Type-safe development for better code quality
+- **Tailwind CSS** - Utility-first CSS framework for rapid UI development
+- **shadcn/ui** - Beautiful and accessible UI components
+- **Lucide React** - Modern icon library with 1000+ icons
+- **React Router** - Client-side routing for single-page application
+- **React Hook Form** - Performant forms with easy validation
+- **Recharts** - Responsive chart library built on D3.js
 
-### Prerequisites
+### **Backend & Database**
+- **PostgreSQL** - Robust relational database with JSONB support
+- **Node.js** - JavaScript runtime for server-side development
+- **pg** - Non-blocking PostgreSQL client for Node.js
+- **UUID** - Universally unique identifiers for database records
 
-- **Node.js** (v18.0.0 or higher)
-- **npm** or **yarn** or **bun**
-- **Supabase** account for backend services
+### **Development Tools**
+- **Vite** - Fast build tool and development server
+- **ESLint** - Code linting for consistent code style
+- **TypeScript ESLint** - TypeScript-specific linting rules
+- **PostCSS** - Tool for transforming CSS with JavaScript
 
-### Installation
+## 📦 Installation & Setup
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-org/akibeks-engineering.git
-   cd akibeks-engineering
-   ```
+### **Prerequisites**
+- Node.js (v18 or higher)
+- PostgreSQL (v12 or higher)
+- npm or yarn package manager
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   # or
-   yarn install
-   # or
-   bun install
-   ```
+### **1. Clone the Repository**
+```bash
+git clone <repository-url>
+cd project-management-platform
+```
 
-3. **Environment Setup**
-   ```bash
-   cp .env.example .env.local
-   ```
-   
-   Configure your environment variables:
-   ```env
-   VITE_SUPABASE_URL=your_supabase_project_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
+### **2. Install Dependencies**
+```bash
+npm install
+```
 
-4. **Database Setup**
-   
-   Run the SQL migrations in your Supabase dashboard:
-   ```sql
-   -- Core tables for project management
-   CREATE TABLE projects (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     project_number VARCHAR NOT NULL UNIQUE,
-     title VARCHAR NOT NULL,
-     description TEXT,
-     client_name VARCHAR NOT NULL,
-     client_email VARCHAR,
-     client_phone VARCHAR,
-     location VARCHAR NOT NULL,
-     total_budget DECIMAL(15,2) NOT NULL,
-     spent_amount DECIMAL(15,2) DEFAULT 0,
-     status VARCHAR DEFAULT 'planning' CHECK (status IN ('planning', 'in_progress', 'on_hold', 'completed', 'cancelled')),
-     priority VARCHAR DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'critical')),
-     start_date DATE NOT NULL,
-     expected_completion DATE NOT NULL,
-     actual_completion DATE,
-     completion_percentage INTEGER DEFAULT 0 CHECK (completion_percentage >= 0 AND completion_percentage <= 100),
-     project_manager VARCHAR,
-     team_members TEXT[],
-     tags TEXT[],
-     risk_level VARCHAR DEFAULT 'low' CHECK (risk_level IN ('low', 'medium', 'high')),
-     client_satisfaction INTEGER CHECK (client_satisfaction >= 1 AND client_satisfaction <= 5),
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+### **3. Database Setup**
 
-   -- Tasks management
-   CREATE TABLE project_tasks (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-     title VARCHAR NOT NULL,
-     description TEXT,
-     assigned_to VARCHAR NOT NULL,
-     status VARCHAR DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'review', 'completed')),
-     priority VARCHAR DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'critical')),
-     due_date DATE NOT NULL,
-     estimated_hours INTEGER DEFAULT 0,
-     actual_hours INTEGER,
-     dependencies UUID[],
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     completed_at TIMESTAMP WITH TIME ZONE
-   );
+#### **Create PostgreSQL Database**
+```bash
+# Connect to PostgreSQL
+psql -U postgres
 
-   -- Resource management
-   CREATE TABLE project_resources (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-     name VARCHAR NOT NULL,
-     type VARCHAR CHECK (type IN ('human', 'equipment', 'material')),
-     cost_per_unit DECIMAL(10,2) NOT NULL,
-     quantity INTEGER NOT NULL,
-     status VARCHAR DEFAULT 'available' CHECK (status IN ('available', 'assigned', 'in_use', 'maintenance')),
-     allocation_start DATE,
-     allocation_end DATE,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+# Create database
+CREATE DATABASE project_management;
 
-   -- Time tracking
-   CREATE TABLE time_entries (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-     task_id UUID REFERENCES project_tasks(id) ON DELETE SET NULL,
-     user_name VARCHAR NOT NULL,
-     hours DECIMAL(5,2) NOT NULL,
-     date DATE NOT NULL,
-     description TEXT,
-     billable BOOLEAN DEFAULT true,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+# Exit PostgreSQL
+\q
+```
 
-   -- Risk management
-   CREATE TABLE project_risks (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-     title VARCHAR NOT NULL,
-     description TEXT,
-     probability VARCHAR CHECK (probability IN ('low', 'medium', 'high')),
-     impact VARCHAR CHECK (impact IN ('low', 'medium', 'high')),
-     mitigation_strategy TEXT,
-     status VARCHAR DEFAULT 'identified' CHECK (status IN ('identified', 'mitigating', 'resolved', 'occurred')),
-     owner VARCHAR NOT NULL,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+#### **Run Database Schema**
+```bash
+# Run the schema file to create tables and sample data
+psql -U postgres -d project_management -f database_schema.sql
+```
 
-   -- Team collaboration
-   CREATE TABLE project_team_members (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-     name VARCHAR NOT NULL,
-     role VARCHAR NOT NULL,
-     email VARCHAR NOT NULL,
-     avatar VARCHAR,
-     status VARCHAR DEFAULT 'offline' CHECK (status IN ('online', 'offline', 'busy', 'away')),
-     last_seen TIMESTAMP WITH TIME ZONE,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+### **4. Environment Configuration**
 
-   -- Project messaging
-   CREATE TABLE project_messages (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-     sender_id VARCHAR NOT NULL,
-     sender_name VARCHAR NOT NULL,
-     sender_avatar VARCHAR,
-     content TEXT NOT NULL,
-     message_type VARCHAR DEFAULT 'text' CHECK (message_type IN ('text', 'file', 'image', 'system')),
-     file_url VARCHAR,
-     file_name VARCHAR,
-     reply_to UUID REFERENCES project_messages(id),
-     pinned BOOLEAN DEFAULT false,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     edited_at TIMESTAMP WITH TIME ZONE
-   );
+#### **Copy Environment File**
+```bash
+cp .env.example .env
+```
 
-   -- Notifications
-   CREATE TABLE project_notifications (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-     user_id VARCHAR NOT NULL,
-     title VARCHAR NOT NULL,
-     description TEXT,
-     type VARCHAR DEFAULT 'info' CHECK (type IN ('info', 'success', 'warning', 'error')),
-     read BOOLEAN DEFAULT false,
-     action_url VARCHAR,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+#### **Configure Environment Variables**
+Edit the `.env` file with your database credentials:
 
-   -- Meetings
-   CREATE TABLE project_meetings (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-     title VARCHAR NOT NULL,
-     description TEXT,
-     start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-     end_time TIMESTAMP WITH TIME ZONE NOT NULL,
-     meeting_url VARCHAR,
-     attendees TEXT[],
-     created_by VARCHAR NOT NULL,
-     status VARCHAR DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')),
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+```env
+# Database Configuration
+DATABASE_URL=postgresql://username:password@localhost:5432/project_management
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=project_management
+DB_USER=your_username
+DB_PASSWORD=your_password
 
-   -- File sharing
-   CREATE TABLE project_files (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-     file_name VARCHAR NOT NULL,
-     file_size BIGINT NOT NULL,
-     file_type VARCHAR NOT NULL,
-     file_url VARCHAR NOT NULL,
-     uploaded_by VARCHAR NOT NULL,
-     description TEXT,
-     tags TEXT[],
-     folder VARCHAR,
-     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+# Server Configuration
+PORT=5000
+NODE_ENV=development
 
-   -- Invoices (existing table structure)
-   CREATE TABLE invoices (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     invoice_number VARCHAR NOT NULL UNIQUE,
-     client_name VARCHAR NOT NULL,
-     client_address TEXT,
-     client_phone VARCHAR,
-     client_email VARCHAR,
-     issue_date DATE NOT NULL,
-     due_date DATE NOT NULL,
-     subtotal DECIMAL(15,2) NOT NULL,
-     tax_rate DECIMAL(5,2) DEFAULT 0,
-     tax_amount DECIMAL(15,2) DEFAULT 0,
-     discount_amount DECIMAL(15,2) DEFAULT 0,
-     total_amount DECIMAL(15,2) NOT NULL,
-     paid_amount DECIMAL(15,2) DEFAULT 0,
-     status VARCHAR DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'cancelled')),
-     notes TEXT,
-     payment_terms TEXT,
-     template_type VARCHAR DEFAULT 'modern',
-     letterhead_enabled BOOLEAN DEFAULT true,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+# JWT Configuration
+JWT_SECRET=your-super-secret-jwt-key-here
+JWT_EXPIRES_IN=7d
 
-   -- Quotations
-   CREATE TABLE quotations (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     quote_number VARCHAR NOT NULL UNIQUE,
-     client_name VARCHAR NOT NULL,
-     client_address TEXT,
-     client_phone VARCHAR,
-     client_email VARCHAR,
-     issue_date DATE NOT NULL,
-     valid_until DATE NOT NULL,
-     subtotal DECIMAL(15,2) NOT NULL,
-     tax_rate DECIMAL(5,2) DEFAULT 0,
-     tax_amount DECIMAL(15,2) DEFAULT 0,
-     discount_amount DECIMAL(15,2) DEFAULT 0,
-     total_amount DECIMAL(15,2) NOT NULL,
-     status VARCHAR DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'accepted', 'rejected', 'expired')),
-     project_description TEXT,
-     terms TEXT,
-     notes TEXT,
-     template_type VARCHAR DEFAULT 'modern',
-     letterhead_enabled BOOLEAN DEFAULT true,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+# Email Configuration
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-email-password
+EMAIL_FROM=noreply@yourcompany.com
 
-   -- Enable Row Level Security
-   ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE project_tasks ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE project_resources ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE time_entries ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE project_risks ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE project_team_members ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE project_messages ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE project_notifications ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE project_meetings ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE project_files ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE quotations ENABLE ROW LEVEL SECURITY;
-   ```
+# App Configuration
+APP_NAME=Project Management System
+APP_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:5000
+```
 
-5. **Start the development server**
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   # or
-   bun dev
-   ```
+### **5. Start Development Server**
+```bash
+npm run dev
+```
 
-6. **Access the application**
-   - Open [http://localhost:5173](http://localhost:5173) in your browser
-   - The application will be running with hot reload enabled
+The application will be available at `http://localhost:3000`
+
+### **6. Default Login Credentials**
+- **Email:** `admin@company.com`
+- **Password:** `admin123`
+
+## 🚀 Usage Guide
+
+### **Getting Started**
+1. **Login** - Use the default admin credentials to access the system
+2. **Dashboard** - Navigate to the main dashboard to view project overview
+3. **Create Project** - Start by creating your first project
+4. **Add Team Members** - Invite users and assign appropriate roles
+5. **Track Progress** - Use tasks, time tracking, and milestones to monitor progress
+
+### **Admin Features**
+- **User Management** - Create, edit, and manage user accounts
+- **System Settings** - Configure system-wide settings and preferences
+- **Analytics Dashboard** - View comprehensive system analytics
+- **Template Management** - Create and customize document templates
+- **Backup Management** - Configure and monitor system backups
+
+### **Project Management**
+- **Create Projects** - Set up projects with clients, budgets, and timelines
+- **Task Assignment** - Break down projects into manageable tasks
+- **Time Tracking** - Log time spent on tasks and projects
+- **Progress Monitoring** - Track project completion and milestones
+- **Team Collaboration** - Communicate and collaborate with team members
+
+### **Financial Management**
+- **Generate Invoices** - Create professional invoices from project data
+- **Send Quotations** - Prepare and send quotations to potential clients
+- **Track Payments** - Monitor invoice payments and outstanding amounts
+- **Financial Reports** - Generate detailed financial reports and analytics
 
 ## 📁 Project Structure
 
 ```
-akibeks-engineering/
-├── public/                          # Static assets
-├── src/
-│   ├── components/                  # Reusable UI components
-│   │   ├── ui/                     # Base UI components (buttons, inputs, etc.)
-│   │   ├── admin/                  # Admin-specific components
-│   │   │   ├── invoices/          # Invoice management components
-│   │   │   └── projects/          # Project management components
-│   │   ├── enhanced/              # Enhanced UI components
-│   │   ├── InvoicePDF.tsx         # Invoice PDF generation
-│   │   ├── QuotationPDF.tsx       # Quotation PDF generation
-│   │   ├── TeamCollaboration.tsx  # Team collaboration features
-│   │   ├── Navbar.tsx             # Main navigation
-│   │   └── Footer.tsx             # Site footer
-│   ├── pages/                      # Application pages
-│   │   ├── admin/                 # Admin panel pages
-│   │   │   ├── AdminDashboard.tsx # Admin dashboard
-│   │   │   ├── AdminProjects.tsx  # Project management
-│   │   │   ├── AdminInvoices.tsx  # Invoice management
-│   │   │   ├── AdminQuotations.tsx # Quotation management
-│   │   │   └── ...                # Other admin pages
-│   │   ├── ClientPortal.tsx       # Main client portal
-│   │   ├── ProjectDashboard.tsx   # Advanced project dashboard
-│   │   ├── ProjectTracking.tsx    # Project progress tracking
-│   │   ├── InvoiceManagement.tsx  # Client invoice management
-│   │   ├── QuotationManagement.tsx # Client quotation management
-│   │   ├── Index.tsx              # Homepage
-│   │   └── ...                    # Other public pages
-│   ├── contexts/                   # React contexts
-│   │   └── AdminContext.tsx       # Admin authentication context
-│   ├── hooks/                      # Custom React hooks
-│   │   └── use-toast.tsx          # Toast notification hook
-│   ├── integrations/              # External service integrations
-│   │   └── supabase/              # Supabase configuration
-│   ├── lib/                       # Utility libraries
-│   ├── App.tsx                    # Main application component
-│   └── main.tsx                   # Application entry point
-├── .env.example                   # Environment variables template
-├── package.json                   # Project dependencies
-├── tailwind.config.ts            # Tailwind CSS configuration
-├── tsconfig.json                 # TypeScript configuration
-├── vite.config.ts               # Vite build configuration
-└── README.md                    # This file
+src/
+├── components/          # Reusable UI components
+│   ├── ui/             # shadcn/ui components
+│   ├── AdminHeader.tsx # Admin navigation header
+│   ├── AdminLogin.tsx  # Admin authentication
+│   └── ...
+├── contexts/           # React context providers
+│   ├── AdminContext.tsx # Admin authentication context
+│   └── ...
+├── hooks/              # Custom React hooks
+│   ├── use-toast.ts    # Toast notification hook
+│   └── ...
+├── lib/                # Utility libraries
+│   ├── database.ts     # PostgreSQL database service
+│   └── utils.ts        # Common utility functions
+├── pages/              # Page components
+│   ├── admin/          # Admin dashboard pages
+│   │   ├── AdminAnalytics.tsx
+│   │   ├── AdminUsers.tsx
+│   │   ├── AdminTemplates.tsx
+│   │   └── ...
+│   ├── Index.tsx       # Homepage
+│   ├── ProjectDashboard.tsx
+│   └── ...
+├── App.tsx             # Main application component
+├── main.tsx           # Application entry point
+└── index.css          # Global styles
 ```
 
-## 🎨 Technology Stack
+## 🔧 Configuration
 
-### Frontend Technologies
-- **React 18.2** - Modern React with hooks and concurrent features
-- **TypeScript 5.0** - Type-safe JavaScript with advanced IntelliSense
-- **Vite 4.4** - Lightning-fast build tool with HMR
-- **Tailwind CSS 3.3** - Utility-first CSS framework
-- **React Router v6** - Declarative routing for React
-- **Radix UI** - Unstyled, accessible UI components
-- **Lucide React** - Beautiful & consistent icon set
-- **React Hook Form** - Performant forms with easy validation
-- **React Query** - Powerful data synchronization for React
+### **Database Configuration**
+The system uses PostgreSQL with the following key features:
+- **UUID Primary Keys** - For better security and distributed systems
+- **JSONB Fields** - For flexible data storage (templates, settings)
+- **Triggers** - Automatic timestamp updates
+- **Indexes** - Optimized for performance
+- **Foreign Keys** - Data integrity and relationships
 
-### Backend & Database
-- **Supabase** - Open source Firebase alternative
-  - PostgreSQL database with real-time subscriptions
-  - Row Level Security (RLS) for data protection
-  - Authentication and user management
-  - File storage and CDN
-  - Edge functions for serverless logic
+### **Environment Variables**
+All configuration is managed through environment variables:
+- **Database settings** - Connection details and credentials
+- **Server configuration** - Port, environment, URLs
+- **Security settings** - JWT secrets, encryption keys
+- **Email configuration** - SMTP settings for notifications
+- **Application settings** - Company info, defaults, features
 
-### Development Tools
-- **ESLint** - Code linting and style enforcement
-- **Prettier** - Code formatting
-- **Husky** - Git hooks for code quality
-- **PostCSS** - CSS processing and optimization
+### **Role-Based Access Control**
+The system implements three user roles:
+- **Admin** - Full system access and management capabilities
+- **Manager** - Project management and team oversight
+- **User** - Project participation and time tracking
 
-## 🔐 Security Features
+## 🛡️ Security Features
 
-### Authentication & Authorization
-- **Row Level Security (RLS)** - Database-level access control
-- **Email-based Authentication** - Secure client access via email verification
-- **Project Number Verification** - Additional security layer for project access
-- **Role-based Access Control** - Admin, manager, and client permission levels
+### **Authentication & Authorization**
+- **JWT-based authentication** - Secure token-based login system
+- **Role-based access control** - Granular permissions by user role
+- **Password hashing** - Bcrypt encryption for password security
+- **Session management** - Secure session handling and timeouts
 
-### Data Protection
-- **Encrypted Data Storage** - All sensitive data encrypted at rest
-- **Secure API Endpoints** - Protected with authentication tokens
-- **Input Validation** - Client and server-side validation
-- **SQL Injection Prevention** - Parameterized queries and ORM protection
+### **Data Protection**
+- **SQL injection prevention** - Parameterized queries and input validation
+- **XSS protection** - Input sanitization and output encoding
+- **CSRF protection** - Cross-site request forgery prevention
+- **Data encryption** - Sensitive data encryption at rest and in transit
 
-## 📱 Responsive Design
+### **Audit & Monitoring**
+- **Activity logging** - Comprehensive audit trail for all actions
+- **Access monitoring** - Track user login and access patterns
+- **Error logging** - Detailed error tracking and reporting
+- **Performance monitoring** - System performance and health metrics
 
-The application is fully responsive and optimized for:
-- **Desktop**: Full feature set with multi-column layouts
-- **Tablet**: Adaptive layouts with collapsible sidebars
-- **Mobile**: Touch-optimized interface with mobile-first design
-- **Progressive Web App (PWA)**: Can be installed on mobile devices
+## 📊 API Documentation
 
-## 🚀 Deployment
+### **Database Service Methods**
 
-### Production Build
-```bash
-npm run build
-# or
-yarn build
-# or
-bun run build
-```
-
-### Deployment Options
-
-#### 1. Vercel (Recommended)
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy to Vercel
-vercel --prod
-```
-
-#### 2. Netlify
-```bash
-# Build the project
-npm run build
-
-# Deploy the dist/ folder to Netlify
-```
-
-#### 3. Docker
-```dockerfile
-FROM node:18-alpine
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY . .
-RUN npm run build
-
-EXPOSE 3000
-CMD ["npm", "run", "preview"]
-```
-
-### Environment Variables for Production
-```env
-VITE_SUPABASE_URL=your_production_supabase_url
-VITE_SUPABASE_ANON_KEY=your_production_supabase_anon_key
-VITE_APP_URL=https://your-domain.com
-```
-
-## 📖 Usage Guide
-
-### For Clients
-
-#### Accessing Your Projects
-1. Visit the **Client Portal** at `/client-portal`
-2. Enter your email address or project number
-3. Access your project dashboard with real-time updates
-
-#### Managing Invoices
-1. Navigate to **Invoice Management** (`/invoices`)
-2. Search for invoices using email or invoice number
-3. View payment status and download PDF invoices
-4. Track payment history and outstanding balances
-
-#### Requesting Quotations
-1. Go to **Quotation Management** (`/quotations`)
-2. Fill out the comprehensive project request form
-3. Track quotation status and validity
-4. Accept or reject quotations digitally
-
-#### Project Collaboration
-1. Access the **Project Dashboard** (`/project-dashboard`)
-2. View real-time project progress and milestones
-3. Communicate with the project team via integrated chat
-4. Access shared files and project documentation
-
-### For Administrators
-
-#### Project Management
-1. Access **Admin Dashboard** (`/admin`)
-2. Create and manage projects with full lifecycle tracking
-3. Assign team members and allocate resources
-4. Monitor project health and performance metrics
-
-#### Invoice & Quotation Management
-1. Generate professional invoices with multiple templates
-2. Track payment status and send automated reminders
-3. Create detailed quotations with itemized breakdowns
-4. Manage client communications and approvals
-
-#### Team Coordination
-1. Manage team members and roles
-2. Track time entries and billable hours
-3. Schedule meetings and video conferences
-4. Monitor team productivity and resource utilization
-
-## 🔧 API Reference
-
-### Core Endpoints
-
-#### Projects API
+#### **User Management**
 ```typescript
+// Create new user
+DatabaseService.createUser(userData)
+
+// Get user by email
+DatabaseService.getUserByEmail(email)
+
+// Update user information
+DatabaseService.updateUser(id, updates)
+
+// Get all users
+DatabaseService.getAllUsers()
+```
+
+#### **Project Management**
+```typescript
+// Create project
+DatabaseService.createProject(projectData)
+
 // Get all projects
-GET /api/projects
-Query Parameters: status, priority, client_email
-
-// Get project by ID
-GET /api/projects/:id
-
-// Create new project
-POST /api/projects
-Body: ProjectCreateRequest
+DatabaseService.getAllProjects()
 
 // Update project
-PUT /api/projects/:id
-Body: ProjectUpdateRequest
+DatabaseService.updateProject(id, updates)
 
-// Delete project
-DELETE /api/projects/:id
+// Get project analytics
+DatabaseService.getProjectAnalytics()
 ```
 
-#### Tasks API
+#### **Time Tracking**
 ```typescript
-// Get project tasks
-GET /api/projects/:projectId/tasks
-Query Parameters: status, assigned_to, priority
+// Create time entry
+DatabaseService.createTimeEntry(timeData)
 
-// Create task
-POST /api/projects/:projectId/tasks
-Body: TaskCreateRequest
+// Get time entries by project
+DatabaseService.getTimeEntriesByProject(projectId)
 
-// Update task status
-PUT /api/tasks/:id/status
-Body: { status: 'todo' | 'in_progress' | 'review' | 'completed' }
+// Get all time entries
+DatabaseService.getAllTimeEntries()
 ```
-
-#### Time Tracking API
-```typescript
-// Log time entry
-POST /api/time-entries
-Body: {
-  project_id: string;
-  task_id?: string;
-  hours: number;
-  description: string;
-  billable: boolean;
-}
-
-// Get time entries
-GET /api/projects/:projectId/time-entries
-Query Parameters: start_date, end_date, user_name
-```
-
-### Real-time Features
-
-The application uses Supabase real-time subscriptions for:
-- **Live chat messages** - Instant team communication
-- **Project updates** - Real-time progress notifications
-- **Task status changes** - Immediate task board updates
-- **New notifications** - Instant alert delivery
 
 ## 🧪 Testing
 
-### Running Tests
+### **Running Tests**
 ```bash
-# Run unit tests
-npm run test
+# Run all tests
+npm test
 
-# Run tests with coverage
+# Run tests in watch mode
+npm run test:watch
+
+# Generate test coverage report
 npm run test:coverage
-
-# Run integration tests
-npm run test:integration
-
-# Run e2e tests
-npm run test:e2e
 ```
 
-### Testing Strategy
-- **Unit Tests**: Component testing with React Testing Library
-- **Integration Tests**: API endpoint testing
-- **E2E Tests**: Full user workflow testing with Playwright
-- **Visual Regression Tests**: UI consistency testing
+### **Test Structure**
+- **Unit Tests** - Individual component and function testing
+- **Integration Tests** - Database and API endpoint testing
+- **E2E Tests** - Complete user workflow testing
+- **Performance Tests** - Load and stress testing
 
-## 🐛 Troubleshooting
+## 🚀 Deployment
 
-### Common Issues
-
-#### Build Errors
+### **Production Build**
 ```bash
-# Clear node_modules and reinstall
-rm -rf node_modules package-lock.json
-npm install
+# Build for production
+npm run build
 
-# Clear Vite cache
-npm run dev -- --force
+# Preview production build
+npm run preview
 ```
 
-#### Database Connection Issues
-1. Verify Supabase URL and API key in `.env.local`
-2. Check database permissions and RLS policies
-3. Ensure network connectivity to Supabase
+### **Environment Setup**
+1. **Production Database** - Set up PostgreSQL instance
+2. **Environment Variables** - Configure production environment
+3. **SSL Certificates** - Set up HTTPS for security
+4. **Domain Configuration** - Configure domain and DNS
+5. **Monitoring** - Set up logging and monitoring tools
 
-#### Authentication Problems
-1. Verify email-based authentication setup
-2. Check browser local storage for session data
-3. Ensure CORS settings are configured correctly
-
-#### Performance Issues
-1. Enable React DevTools Profiler
-2. Check bundle size with `npm run build:analyze`
-3. Optimize images and assets
-4. Implement code splitting for large pages
+### **Deployment Options**
+- **Docker** - Containerized deployment with Docker Compose
+- **Cloud Platforms** - Deploy to AWS, Google Cloud, or Azure
+- **VPS** - Traditional virtual private server deployment
+- **Static Hosting** - Frontend deployment to Netlify, Vercel, or similar
 
 ## 🤝 Contributing
 
-### Development Workflow
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
+### **Development Workflow**
+1. **Fork the repository**
+2. **Create feature branch** - `git checkout -b feature/amazing-feature`
+3. **Commit changes** - `git commit -m 'Add amazing feature'`
+4. **Push to branch** - `git push origin feature/amazing-feature`
+5. **Open Pull Request**
 
-### Code Standards
-- **TypeScript**: Strict mode enabled with proper typing
-- **ESLint**: Enforce consistent code style
-- **Prettier**: Automatic code formatting
-- **Conventional Commits**: Standardized commit messages
-- **Test Coverage**: Minimum 80% coverage for new features
+### **Code Standards**
+- **TypeScript** - Strict type checking enabled
+- **ESLint** - Follow established linting rules
+- **Prettier** - Code formatting consistency
+- **Conventional Commits** - Standardized commit messages
 
-### Pull Request Process
-1. Update documentation for any new features
-2. Add tests for new functionality
-3. Ensure all existing tests pass
-4. Update the README if needed
-5. Request review from maintainers
+### **Pull Request Guidelines**
+- **Clear description** - Explain the changes and reasoning
+- **Test coverage** - Include tests for new features
+- **Documentation** - Update documentation for API changes
+- **Review process** - Address feedback promptly
 
-## 📊 Performance Metrics
+## 📄 License
 
-### Core Web Vitals
-- **First Contentful Paint (FCP)**: < 1.5s
-- **Largest Contentful Paint (LCP)**: < 2.5s
-- **First Input Delay (FID)**: < 100ms
-- **Cumulative Layout Shift (CLS)**: < 0.1
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-### Bundle Size
-- **Initial Bundle**: ~200KB gzipped
-- **Code Splitting**: Lazy-loaded route chunks
-- **Asset Optimization**: Optimized images and fonts
-- **Tree Shaking**: Unused code elimination
+## 🆘 Support
 
-## 📝 License
+### **Documentation**
+- **User Guide** - Comprehensive user documentation
+- **API Reference** - Complete API documentation
+- **Video Tutorials** - Step-by-step video guides
+- **FAQ** - Frequently asked questions
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+### **Community Support**
+- **GitHub Issues** - Bug reports and feature requests
+- **Discussion Forum** - Community discussions and help
+- **Stack Overflow** - Technical questions and answers
+- **Discord/Slack** - Real-time community chat
 
-## 🙏 Acknowledgments
-
-- **React Team** - For the amazing framework
-- **Supabase Team** - For the incredible backend platform
-- **Tailwind CSS** - For the utility-first CSS framework
-- **Radix UI** - For accessible component primitives
-- **Lucide** - For the beautiful icon set
-
-## 📞 Support
-
-### Getting Help
-- **Documentation**: Check this README and inline code comments
-- **Issues**: Create an issue on GitHub for bugs or feature requests
-- **Discussions**: Use GitHub Discussions for questions and ideas
-- **Email**: support@akibeks.com for urgent matters
-
-### Support Channels
-- 📧 **Email Support**: support@akibeks.com
-- 📱 **Phone Support**: +254 123 456 789
-- 💬 **Live Chat**: Available during business hours
-- 🐛 **Bug Reports**: GitHub Issues
-- 💡 **Feature Requests**: GitHub Discussions
+### **Professional Support**
+- **Consulting Services** - Custom development and integration
+- **Training Programs** - Team training and onboarding
+- **Priority Support** - Dedicated support for enterprise customers
+- **Custom Development** - Tailored features and modifications
 
 ## 🔮 Roadmap
 
-### Upcoming Features
-- **Mobile App**: React Native mobile application
-- **Advanced Analytics**: Enhanced business intelligence dashboard
-- **AI Integration**: Intelligent project insights and recommendations
-- **API Webhooks**: External system integrations
-- **Multi-language Support**: Internationalization (i18n)
-- **Advanced Permissions**: Granular role-based access control
-- **Automated Testing**: Comprehensive test automation suite
-- **Performance Monitoring**: Real-time application monitoring
+### **Upcoming Features**
+- **Mobile App** - Native iOS and Android applications
+- **Advanced Analytics** - Machine learning-powered insights
+- **API Integration** - Third-party service integrations
+- **Workflow Automation** - Advanced automation capabilities
+- **Multi-language Support** - Internationalization and localization
 
-### Version History
-- **v1.0.0** - Initial release with core features
-- **v1.1.0** - Enhanced project dashboard and team collaboration
-- **v1.2.0** - Advanced invoice and quotation management
-- **v1.3.0** - Real-time features and notifications
-- **v2.0.0** - Complete UI overhaul and performance optimization (planned)
+### **Long-term Goals**
+- **Enterprise Features** - Advanced enterprise-grade capabilities
+- **White-label Solution** - Customizable branding and deployment
+- **Marketplace** - Plugin and extension marketplace
+- **AI Integration** - Artificial intelligence-powered features
+
+## 📈 Performance
+
+### **Optimization Features**
+- **Lazy Loading** - Component and route-based code splitting
+- **Database Indexing** - Optimized database queries and indexes
+- **Caching** - Intelligent caching strategies for better performance
+- **CDN Integration** - Content delivery network for static assets
+
+### **Scalability**
+- **Horizontal Scaling** - Support for multiple server instances
+- **Database Sharding** - Distribute data across multiple databases
+- **Microservices** - Modular architecture for better scalability
+- **Load Balancing** - Distribute traffic across multiple servers
 
 ---
 
-**Built with ❤️ by the AKIBEKS Engineering Team**
+**Built with ❤️ for project management excellence**
 
-*For more information, visit [www.akibeks.com](https://www.akibeks.com)*
+For more information, visit our [documentation](docs/) or [contact us](mailto:support@projectmanagement.com).
+
+## 📞 Contact
+
+- **Email:** support@projectmanagement.com
+- **Website:** https://projectmanagement.com
+- **Twitter:** @ProjectMgmtSys
+- **LinkedIn:** /company/project-management-system

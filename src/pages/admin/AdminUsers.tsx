@@ -8,32 +8,69 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Users, Shield, Edit, Trash2, Mail, Phone, Calendar, UserCheck, UserX } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { 
+  Plus, 
+  Search, 
+  Users, 
+  Shield, 
+  Edit, 
+  Trash2, 
+  Mail, 
+  Phone, 
+  Calendar, 
+  UserCheck, 
+  UserX, 
+  Filter,
+  Download,
+  Upload,
+  MoreHorizontal,
+  Activity,
+  Clock,
+  MapPin,
+  Settings,
+  Key,
+  AlertTriangle
+} from "lucide-react";
+import { DatabaseService, mockData } from "@/lib/database";
 import { useAdmin } from "@/contexts/AdminContext";
 import AdminLogin from "@/components/AdminLogin";
 import AdminHeader from "@/components/AdminHeader";
-import { UserAvatar } from "@/components/ui/user-avatar";
-import AuthGuard from "@/components/AuthGuard";
 
 const AdminUsers = () => {
   const { toast } = useToast();
   const { isAuthenticated } = useAdmin();
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState(mockData.users || []);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showEditUser, setShowEditUser] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [currentTab, setCurrentTab] = useState("overview");
 
   const [newUser, setNewUser] = useState({
-    full_name: "",
+    name: "",
     email: "",
     phone: "",
-    role: "engineer",
-    is_active: true
+    role: "user",
+    department: "",
+    location: "",
+    is_active: true,
+    password: ""
+  });
+
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    inactive: 0,
+    admins: 0,
+    managers: 0,
+    users: 0
   });
 
   if (!isAuthenticated) {
@@ -44,89 +81,159 @@ const AdminUsers = () => {
     fetchUsers();
   }, []);
 
-  const fetchUsers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .order('created_at', { ascending: false });
+  useEffect(() => {
+    updateStats();
+  }, [users]);
 
-      if (error) throw error;
-      setUsers(data || []);
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      // Simulate API call with mock data
+      const mockUsers = [
+        {
+          id: '1',
+          name: 'John Smith',
+          email: 'john.smith@company.com',
+          phone: '+1 234 567 8900',
+          role: 'admin',
+          department: 'IT',
+          location: 'New York',
+          is_active: true,
+          last_login: '2024-01-15T10:30:00Z',
+          created_at: '2023-01-15T10:30:00Z',
+          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face'
+        },
+        {
+          id: '2',
+          name: 'Sarah Johnson',
+          email: 'sarah.johnson@company.com',
+          phone: '+1 234 567 8901',
+          role: 'manager',
+          department: 'Marketing',
+          location: 'Los Angeles',
+          is_active: true,
+          last_login: '2024-01-14T15:45:00Z',
+          created_at: '2023-03-10T09:15:00Z',
+          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b6fc9b2d?w=64&h=64&fit=crop&crop=face'
+        },
+        {
+          id: '3',
+          name: 'Michael Chen',
+          email: 'michael.chen@company.com',
+          phone: '+1 234 567 8902',
+          role: 'user',
+          department: 'Development',
+          location: 'San Francisco',
+          is_active: true,
+          last_login: '2024-01-15T08:20:00Z',
+          created_at: '2023-06-20T14:30:00Z',
+          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&h=64&fit=crop&crop=face'
+        },
+        {
+          id: '4',
+          name: 'Emily Davis',
+          email: 'emily.davis@company.com',
+          phone: '+1 234 567 8903',
+          role: 'user',
+          department: 'Design',
+          location: 'Chicago',
+          is_active: false,
+          last_login: '2024-01-10T12:00:00Z',
+          created_at: '2023-08-05T11:45:00Z',
+          avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop&crop=face'
+        },
+        {
+          id: '5',
+          name: 'David Wilson',
+          email: 'david.wilson@company.com',
+          phone: '+1 234 567 8904',
+          role: 'manager',
+          department: 'Sales',
+          location: 'Miami',
+          is_active: true,
+          last_login: '2024-01-15T16:30:00Z',
+          created_at: '2023-04-18T13:20:00Z',
+          avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=64&h=64&fit=crop&crop=face'
+        }
+      ];
+      
+      setUsers(mockUsers);
+      toast({
+        title: "Users loaded",
+        description: "User data has been successfully loaded.",
+      });
     } catch (error) {
-      console.error('Error fetching users:', error);
       toast({
         title: "Error",
-        description: "Failed to load users",
-        variant: "destructive"
+        description: "Failed to load users. Please try again.",
+        variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = filterRole === "all" || user.role === filterRole;
-    return matchesSearch && matchesRole;
-  });
+  const updateStats = () => {
+    const total = users.length;
+    const active = users.filter(user => user.is_active).length;
+    const inactive = total - active;
+    const admins = users.filter(user => user.role === 'admin').length;
+    const managers = users.filter(user => user.role === 'manager').length;
+    const regularUsers = users.filter(user => user.role === 'user').length;
 
-  const getRoleColor = (role) => {
-    switch (role) {
-      case "admin": return "destructive";
-      case "manager": return "default";
-      case "engineer": return "secondary";
-      case "contractor": return "outline";
-      default: return "secondary";
-    }
-  };
-
-  const getRoleIcon = (role) => {
-    switch (role) {
-      case "admin": return "👑";
-      case "manager": return "👨‍💼";
-      case "engineer": return "🔧";
-      case "contractor": return "🏗️";
-      default: return "👤";
-    }
+    setStats({
+      total,
+      active,
+      inactive,
+      admins,
+      managers,
+      users: regularUsers
+    });
   };
 
   const handleCreateUser = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .insert([{
-          full_name: newUser.full_name,
-          email: newUser.email,
-          phone: newUser.phone,
-          role: newUser.role as "admin" | "manager" | "engineer" | "supervisor",
-          is_active: newUser.is_active
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      toast({
-        title: "User Created",
-        description: "New user has been added successfully.",
-      });
-      
-      setShowCreateUser(false);
-      setNewUser({
-        full_name: "",
-        email: "",
-        phone: "",
-        role: "engineer",
-        is_active: true
-      });
-      fetchUsers();
-    } catch (error) {
-      console.error('Error creating user:', error);
+    if (!newUser.name || !newUser.email) {
       toast({
         title: "Error",
-        description: "Failed to create user",
-        variant: "destructive"
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Simulate API call
+      const user = {
+        id: Date.now().toString(),
+        ...newUser,
+        created_at: new Date().toISOString(),
+        last_login: null,
+        avatar: `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`
+      };
+
+      setUsers(prev => [...prev, user]);
+      setShowCreateUser(false);
+      setNewUser({
+        name: "",
+        email: "",
+        phone: "",
+        role: "user",
+        department: "",
+        location: "",
+        is_active: true,
+        password: ""
+      });
+
+      toast({
+        title: "Success",
+        description: "User created successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create user. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -134,29 +241,56 @@ const AdminUsers = () => {
   };
 
   const handleUpdateUser = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update(selectedUser)
-        .eq('id', selectedUser.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "User Updated",
-        description: "User information has been updated successfully.",
-      });
-      
-      setShowEditUser(false);
-      setSelectedUser(null);
-      fetchUsers();
-    } catch (error) {
-      console.error('Error updating user:', error);
+    if (!selectedUser.name || !selectedUser.email) {
       toast({
         title: "Error",
-        description: "Failed to update user",
-        variant: "destructive"
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      setUsers(prev => prev.map(user => 
+        user.id === selectedUser.id ? { ...selectedUser } : user
+      ));
+      setShowEditUser(false);
+      setSelectedUser(null);
+
+      toast({
+        title: "Success",
+        description: "User updated successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update user. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+
+    setLoading(true);
+    try {
+      setUsers(prev => prev.filter(user => user.id !== selectedUser.id));
+      setShowDeleteConfirm(false);
+      setSelectedUser(null);
+
+      toast({
+        title: "Success",
+        description: "User deleted successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete user. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -165,415 +299,577 @@ const AdminUsers = () => {
 
   const toggleUserStatus = async (userId, currentStatus) => {
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({ is_active: !currentStatus })
-        .eq('id', userId);
-
-      if (error) throw error;
+      setUsers(prev => prev.map(user => 
+        user.id === userId ? { ...user, is_active: !currentStatus } : user
+      ));
 
       toast({
-        title: "Status Updated",
+        title: "Success",
         description: `User ${!currentStatus ? 'activated' : 'deactivated'} successfully.`,
       });
-      fetchUsers();
     } catch (error) {
-      console.error('Error updating user status:', error);
       toast({
         title: "Error",
-        description: "Failed to update user status",
-        variant: "destructive"
+        description: "Failed to update user status. Please try again.",
+        variant: "destructive",
       });
     }
   };
 
-  const deleteUser = async (userId) => {
-    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
-      return;
-    }
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.department?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = filterRole === "all" || user.role === filterRole;
+    const matchesStatus = filterStatus === "all" || 
+                         (filterStatus === "active" && user.is_active) ||
+                         (filterStatus === "inactive" && !user.is_active);
+    
+    return matchesSearch && matchesRole && matchesStatus;
+  });
 
-    try {
-      const { error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', userId);
-
-      if (error) throw error;
-
-      toast({
-        title: "User Deleted",
-        description: "User has been deleted successfully.",
-      });
-      fetchUsers();
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete user",
-        variant: "destructive"
-      });
+  const getRoleBadgeColor = (role) => {
+    switch (role) {
+      case 'admin': return 'bg-red-100 text-red-800';
+      case 'manager': return 'bg-blue-100 text-blue-800';
+      case 'user': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   return (
-    <AuthGuard>
-      <div className="min-h-screen bg-gray-50">
-        <AdminHeader />
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gray-50">
+      <AdminHeader />
+      
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          {/* Header Section */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-              <Users className="w-8 h-8 mr-3" />
-              User Management
-            </h1>
-            <p className="text-gray-600 mt-2">Manage system users and their permissions</p>
+            <div className="sm:flex sm:items-center sm:justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+                <p className="mt-2 text-sm text-gray-700">
+                  Manage user accounts, roles, and permissions across your organization.
+                </p>
+              </div>
+              
+              <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+                <Button 
+                  onClick={() => setShowCreateUser(true)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add User
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-6 mb-8">
             <Card>
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Total Users</p>
-                    <p className="text-2xl font-bold">{users.length}</p>
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <Users className="h-8 w-8 text-gray-400" />
                   </div>
-                  <Users className="w-8 h-8 text-blue-600" />
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Total Users</dt>
+                      <dd className="text-lg font-medium text-gray-900">{stats.total}</dd>
+                    </dl>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          
+
             <Card>
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Active Users</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {users.filter(u => u.is_active).length}
-                    </p>
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <UserCheck className="h-8 w-8 text-green-400" />
                   </div>
-                  <UserCheck className="w-8 h-8 text-green-600" />
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Active</dt>
+                      <dd className="text-lg font-medium text-gray-900">{stats.active}</dd>
+                    </dl>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          
+
             <Card>
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Inactive Users</p>
-                    <p className="text-2xl font-bold text-red-600">
-                      {users.filter(u => !u.is_active).length}
-                    </p>
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <UserX className="h-8 w-8 text-red-400" />
                   </div>
-                  <UserX className="w-8 h-8 text-red-600" />
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Inactive</dt>
+                      <dd className="text-lg font-medium text-gray-900">{stats.inactive}</dd>
+                    </dl>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          
+
             <Card>
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Administrators</p>
-                    <p className="text-2xl font-bold text-purple-600">
-                      {users.filter(u => u.role === 'admin').length}
-                    </p>
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <Shield className="h-8 w-8 text-red-400" />
                   </div>
-                  <Shield className="w-8 h-8 text-purple-600" />
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Admins</dt>
+                      <dd className="text-lg font-medium text-gray-900">{stats.admins}</dd>
+                    </dl>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <Settings className="h-8 w-8 text-blue-400" />
+                  </div>
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Managers</dt>
+                      <dd className="text-lg font-medium text-gray-900">{stats.managers}</dd>
+                    </dl>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <Users className="h-8 w-8 text-green-400" />
+                  </div>
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Regular Users</dt>
+                      <dd className="text-lg font-medium text-gray-900">{stats.users}</dd>
+                    </dl>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Create User Button */}
-          <div className="mb-6">
-            <Dialog open={showCreateUser} onOpenChange={setShowCreateUser}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add New User
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Create New User</DialogTitle>
-                  <DialogDescription>
-                    Add a new user to the system
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="fullName">Full Name</Label>
-                      <Input
-                        id="fullName"
-                        value={newUser.full_name}
-                        onChange={(e) => setNewUser(prev => ({ ...prev, full_name: e.target.value }))}
-                        placeholder="Enter full name"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Email Address</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={newUser.email}
-                        onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                        placeholder="Enter email address"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        value={newUser.phone}
-                        onChange={(e) => setNewUser(prev => ({ ...prev, phone: e.target.value }))}
-                        placeholder="Enter phone number"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="role">Role</Label>
-                      <Select onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value }))}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">Administrator</SelectItem>
-                          <SelectItem value="manager">Project Manager</SelectItem>
-                          <SelectItem value="engineer">Engineer</SelectItem>
-                          <SelectItem value="contractor">Contractor</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="active"
-                      checked={newUser.is_active}
-                      onCheckedChange={(checked) => setNewUser(prev => ({ ...prev, is_active: checked }))}
-                    />
-                    <Label htmlFor="active">Active User</Label>
-                  </div>
-
-                  <div className="flex justify-end gap-3">
-                    <Button variant="outline" onClick={() => setShowCreateUser(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleCreateUser} disabled={loading}>
-                      {loading ? "Creating..." : "Create User"}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {/* Filters */}
+          {/* Filters and Search */}
           <Card className="mb-6">
             <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
-                      placeholder="Search users by name or email..."
+                      placeholder="Search users by name, email, or department..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10"
                     />
                   </div>
                 </div>
-                <Select value={filterRole} onValueChange={setFilterRole}>
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="Filter by role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
-                    <SelectItem value="admin">Administrator</SelectItem>
-                    <SelectItem value="manager">Project Manager</SelectItem>
-                    <SelectItem value="engineer">Engineer</SelectItem>
-                    <SelectItem value="contractor">Contractor</SelectItem>
-                  </SelectContent>
-                </Select>
+                
+                <div className="flex gap-2">
+                  <Select value={filterRole} onValueChange={setFilterRole}>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="user">User</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Users Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredUsers.map((user) => (
-              <Card key={user.id} className="hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-4 mb-4">
-                    <div className="relative">
-                      <UserAvatar 
-                        src={user.avatar_url}
-                        name={user.full_name}
-                        email={user.email}
-                        size="lg"
-                      />
-                      <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
-                        user.is_active ? 'bg-green-500' : 'bg-red-500'
-                      }`}></div>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{user.full_name}</h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{getRoleIcon(user.role)}</span>
-                        <Badge variant={getRoleColor(user.role)}>{user.role}</Badge>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 text-sm text-gray-600 mb-4">
-                    <div className="flex items-center">
-                      <Mail className="w-4 h-4 mr-2" />
-                      {user.email}
-                    </div>
-                    {user.phone && (
-                      <div className="flex items-center">
-                        <Phone className="w-4 h-4 mr-2" />
-                        {user.phone}
-                      </div>
-                    )}
-                    <div className="flex items-center">
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Joined {new Date(user.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Dialog open={showEditUser && selectedUser?.id === user.id} onOpenChange={setShowEditUser}>
-                      <DialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="flex-1"
-                          onClick={() => setSelectedUser(user)}
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle>Edit User</DialogTitle>
-                          <DialogDescription>
-                            Update user information and permissions
-                          </DialogDescription>
-                        </DialogHeader>
-                        {selectedUser && (
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label htmlFor="editFullName">Full Name</Label>
-                                <Input
-                                  id="editFullName"
-                                  value={selectedUser.full_name}
-                                  onChange={(e) => setSelectedUser(prev => ({ ...prev, full_name: e.target.value }))}
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="editEmail">Email Address</Label>
-                                <Input
-                                  id="editEmail"
-                                  type="email"
-                                  value={selectedUser.email}
-                                  onChange={(e) => setSelectedUser(prev => ({ ...prev, email: e.target.value }))}
-                                />
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label htmlFor="editPhone">Phone Number</Label>
-                                <Input
-                                  id="editPhone"
-                                  value={selectedUser.phone}
-                                  onChange={(e) => setSelectedUser(prev => ({ ...prev, phone: e.target.value }))}
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="editRole">Role</Label>
-                                <Select value={selectedUser.role} onValueChange={(value) => setSelectedUser(prev => ({ ...prev, role: value }))}>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select role" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="admin">Administrator</SelectItem>
-                                    <SelectItem value="manager">Project Manager</SelectItem>
-                                    <SelectItem value="engineer">Engineer</SelectItem>
-                                    <SelectItem value="contractor">Contractor</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center space-x-2">
-                              <Switch
-                                id="editActive"
-                                checked={selectedUser.is_active}
-                                onCheckedChange={(checked) => setSelectedUser(prev => ({ ...prev, is_active: checked }))}
-                              />
-                              <Label htmlFor="editActive">Active User</Label>
-                            </div>
-
-                            <div className="flex justify-end gap-3">
-                              <Button variant="outline" onClick={() => setShowEditUser(false)}>
-                                Cancel
-                              </Button>
-                              <Button onClick={handleUpdateUser} disabled={loading}>
-                                {loading ? "Updating..." : "Update User"}
-                              </Button>
+          {/* Users Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Users ({filteredUsers.length})</span>
+                <div className="flex items-center space-x-2">
+                  <Button variant="outline" size="sm">
+                    <Filter className="h-4 w-4 mr-2" />
+                    Advanced Filter
+                  </Button>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Last Login</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={user.avatar} alt={user.name} />
+                              <AvatarFallback>
+                                {user.name.split(' ').map(n => n[0]).join('')}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium text-gray-900">{user.name}</div>
+                              <div className="text-sm text-gray-500">{user.email}</div>
+                              {user.phone && (
+                                <div className="text-sm text-gray-500">{user.phone}</div>
+                              )}
                             </div>
                           </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getRoleBadgeColor(user.role)}>
+                            {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-gray-900">{user.department || '-'}</span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center text-sm text-gray-500">
+                            <MapPin className="h-4 w-4 mr-1" />
+                            {user.location || '-'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              checked={user.is_active}
+                              onCheckedChange={() => toggleUserStatus(user.id, user.is_active)}
+                            />
+                            <span className={`text-sm ${user.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                              {user.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center text-sm text-gray-500">
+                            <Clock className="h-4 w-4 mr-1" />
+                            {user.last_login ? 
+                              new Date(user.last_login).toLocaleDateString() : 
+                              'Never'
+                            }
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setShowEditUser(true);
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setShowDeleteConfirm(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
 
-                    <Button
-                      variant={user.is_active ? "destructive" : "default"}
-                      size="sm"
-                      onClick={() => toggleUserStatus(user.id, user.is_active)}
-                    >
-                      {user.is_active ? "Deactivate" : "Activate"}
-                    </Button>
-
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => deleteUser(user.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+      {/* Create User Dialog */}
+      <Dialog open={showCreateUser} onOpenChange={setShowCreateUser}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>
+              Add a new user to your organization with appropriate role and permissions.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Full Name *</Label>
+                <Input
+                  id="name"
+                  value={newUser.name}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="John Smith"
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="john@company.com"
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  value={newUser.phone}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+1 234 567 8900"
+                />
+              </div>
+              <div>
+                <Label htmlFor="role">Role *</Label>
+                <Select value={newUser.role} onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="user">User</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="department">Department</Label>
+                <Input
+                  id="department"
+                  value={newUser.department}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, department: e.target.value }))}
+                  placeholder="Engineering"
+                />
+              </div>
+              <div>
+                <Label htmlFor="location">Location</Label>
+                <Input
+                  id="location"
+                  value={newUser.location}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, location: e.target.value }))}
+                  placeholder="New York"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="password">Password *</Label>
+              <Input
+                id="password"
+                type="password"
+                value={newUser.password}
+                onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+                placeholder="Enter password"
+              />
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={newUser.is_active}
+                onCheckedChange={(checked) => setNewUser(prev => ({ ...prev, is_active: checked }))}
+              />
+              <Label>Active User</Label>
+            </div>
           </div>
 
-          {filteredUsers.length === 0 && (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
-                <p className="text-gray-600">
-                  {searchTerm || filterRole !== "all" 
-                    ? "Try adjusting your search or filter criteria"
-                    : "No users have been created yet"
-                  }
-                </p>
-              </CardContent>
-            </Card>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setShowCreateUser(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateUser} disabled={loading}>
+              {loading ? "Creating..." : "Create User"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={showEditUser} onOpenChange={setShowEditUser}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information and permissions.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedUser && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-name">Full Name *</Label>
+                  <Input
+                    id="edit-name"
+                    value={selectedUser.name}
+                    onChange={(e) => setSelectedUser(prev => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-email">Email *</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={selectedUser.email}
+                    onChange={(e) => setSelectedUser(prev => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input
+                    id="edit-phone"
+                    value={selectedUser.phone || ''}
+                    onChange={(e) => setSelectedUser(prev => ({ ...prev, phone: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-role">Role *</Label>
+                  <Select value={selectedUser.role} onValueChange={(value) => setSelectedUser(prev => ({ ...prev, role: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="user">User</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-department">Department</Label>
+                  <Input
+                    id="edit-department"
+                    value={selectedUser.department || ''}
+                    onChange={(e) => setSelectedUser(prev => ({ ...prev, department: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-location">Location</Label>
+                  <Input
+                    id="edit-location"
+                    value={selectedUser.location || ''}
+                    onChange={(e) => setSelectedUser(prev => ({ ...prev, location: e.target.value }))}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={selectedUser.is_active}
+                  onCheckedChange={(checked) => setSelectedUser(prev => ({ ...prev, is_active: checked }))}
+                />
+                <Label>Active User</Label>
+              </div>
+            </div>
           )}
-        </div>
-      </div>
-    </AuthGuard>
+
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setShowEditUser(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateUser} disabled={loading}>
+              {loading ? "Updating..." : "Update User"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this user? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedUser && (
+            <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={selectedUser.avatar} alt={selectedUser.name} />
+                <AvatarFallback>
+                  {selectedUser.name.split(' ').map(n => n[0]).join('')}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="font-medium text-gray-900">{selectedUser.name}</div>
+                <div className="text-sm text-gray-500">{selectedUser.email}</div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteUser} disabled={loading}>
+              {loading ? "Deleting..." : "Delete User"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
