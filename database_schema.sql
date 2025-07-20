@@ -220,6 +220,72 @@ CREATE TABLE settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- User sessions table for enhanced security
+CREATE TABLE user_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    session_token TEXT UNIQUE NOT NULL,
+    user_agent TEXT,
+    ip_address INET,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    last_activity TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Workflow automations table
+CREATE TABLE automations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    trigger_type VARCHAR(100) NOT NULL,
+    trigger_conditions JSONB NOT NULL,
+    actions JSONB NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Automation logs table
+CREATE TABLE automation_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    automation_id UUID REFERENCES automations(id) ON DELETE CASCADE,
+    trigger_data JSONB,
+    executed_actions JSONB,
+    status VARCHAR(50) DEFAULT 'success',
+    error_message TEXT,
+    execution_time INTEGER, -- milliseconds
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Email templates table
+CREATE TABLE email_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    subject VARCHAR(500) NOT NULL,
+    body TEXT NOT NULL,
+    template_type VARCHAR(100) NOT NULL,
+    variables JSONB,
+    is_active BOOLEAN DEFAULT true,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- API keys table for integrations
+CREATE TABLE api_keys (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    key_hash VARCHAR(255) NOT NULL,
+    permissions JSONB NOT NULL,
+    last_used TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN DEFAULT true,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for performance
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
@@ -244,6 +310,12 @@ CREATE INDEX idx_comments_commentable ON comments(commentable_type, commentable_
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX idx_activity_logs_user_id ON activity_logs(user_id);
 CREATE INDEX idx_activity_logs_resource ON activity_logs(resource_type, resource_id);
+CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX idx_user_sessions_token ON user_sessions(session_token);
+CREATE INDEX idx_automations_trigger_type ON automations(trigger_type);
+CREATE INDEX idx_automation_logs_automation_id ON automation_logs(automation_id);
+CREATE INDEX idx_email_templates_type ON email_templates(template_type);
+CREATE INDEX idx_api_keys_hash ON api_keys(key_hash);
 
 -- Create trigger function for updating timestamps
 CREATE OR REPLACE FUNCTION update_updated_at_column()
