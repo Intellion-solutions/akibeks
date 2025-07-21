@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Plus, CheckCircle, Clock, AlertCircle, Users, Calendar } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db-client";
 import { useAdmin } from "@/contexts/AdminContext";
 import AdminLogin from "@/components/AdminLogin";
 import AdminHeader from "@/components/AdminHeader";

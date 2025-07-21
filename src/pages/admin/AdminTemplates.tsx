@@ -51,7 +51,7 @@ import {
   Printer,
   Minus
 } from "lucide-react";
-import { db, mockData } from "@/lib/database";
+import { db } from "@/lib/db-client";
 
 interface TemplateElement {
   id: string;

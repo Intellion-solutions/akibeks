@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { MessageSquare, Star, Eye, Check, X, Edit, Trash2, Search, Users, Award } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db-client";
 import { useAdmin } from "@/contexts/AdminContext";
 import AdminLogin from "@/components/AdminLogin";
 import AdminHeader from "@/components/AdminHeader";

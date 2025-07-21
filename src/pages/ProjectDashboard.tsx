@@ -53,7 +53,7 @@ import {
   Share2,
   ExternalLink
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db-client";
 
 interface Project {
   id: string;

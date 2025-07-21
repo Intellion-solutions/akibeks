@@ -54,9 +54,12 @@ import {
   Database,
   Monitor
 } from "lucide-react";
-import { AuthManagementService, User, Role, Permission, Session } from "@/lib/auth-management";
+import { AuthManagement, User, Session } from "@/lib/auth-management";
 import { ErrorHandlingService } from "@/lib/error-handling";
-import { connectionPool } from "@/lib/connection-pool";
+
+// Create alias for compatibility
+const AuthManagementService = AuthManagement;
+import { dbClient } from "@/core/database";
 import { queueManager, QueuePriority } from "@/lib/queue-manager";
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 

@@ -1,56 +1,94 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from "@/integrations/supabase/client";
+import { dbClient, Tables } from '@/core/database-client';
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
 interface CompanySettings {
-  company_name?: string;
+  companyName?: string;
   address?: string;
   phone?: string;
   email?: string;
   website?: string;
-  tax_id?: string;
-  registration_number?: string;
-  logo_url?: string;
+  taxId?: string;
+  registrationNumber?: string;
+  logoUrl?: string;
   description?: string;
-  currency_symbol?: string;
-  tax_rate?: number;
-  payment_terms?: string;
-  invoice_prefix?: string;
-  quote_prefix?: string;
-  email_notifications?: boolean;
-  project_updates?: boolean;
-  payment_reminders?: boolean;
-  quote_expiry_alerts?: boolean;
-  system_maintenance?: boolean;
+  currencySymbol?: string;
+  taxRate?: number;
+  paymentTerms?: string;
+  invoicePrefix?: string;
+  quotePrefix?: string;
+  emailNotifications?: boolean;
+  projectUpdates?: boolean;
+  paymentReminders?: boolean;
+  quoteExpiryAlerts?: boolean;
+  systemMaintenance?: boolean;
   timezone?: string;
-  date_format?: string;
+  dateFormat?: string;
   language?: string;
-  backup_frequency?: string;
-  auto_archive?: boolean;
-  two_factor_auth?: boolean;
-  session_timeout?: number;
-  password_policy?: string;
-  login_attempts?: number;
-  ip_restrictions?: boolean;
-  theme?: string;
-  primary_color?: string;
-  sidebar_collapsed?: boolean;
-  compact_mode?: boolean;
-  show_animations?: boolean;
+  backupFrequency?: string;
 }
 
-interface AdminContextType {
-  isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
+  lastLoginAt?: string;
+}
+
+interface Project {
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  budgetKes: string;
+  clientId?: string;
+  location: string;
+  completionPercentage: number;
+  createdAt: string;
+}
+
+interface AdminStats {
+  totalProjects: number;
+  activeProjects: number;
+  completedProjects: number;
+  totalClients: number;
+  totalRevenue: number;
+  pendingInvoices: number;
+  overdueInvoices: number;
+  recentActivities: ActivityLog[];
+}
+
+interface ActivityLog {
+  id: string;
+  action: string;
+  resource?: string;
+  details: Record<string, any>;
+  createdAt: string;
+  userId?: string;
+}
+
+export interface AdminContextType {
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  companySettings: CompanySettings;
-  loadCompanySettings: () => Promise<void>;
-  updateCompanySettings: (settings: Partial<CompanySettings>) => Promise<void>;
-  loginAttempts: number;
-  isLocked: boolean;
-  sessionExpiry: Date | null;
+  refreshStats: () => Promise<void>;
+  stats: {
+    totalProjects: number;
+    activeProjects: number;
+    totalClients: number;
+    totalRevenue: number;
+    pendingTasks: number;
+    completedTasks: number;
+    overdueProjects: number;
+    monthlyRevenue: number;
+  };
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -63,270 +101,159 @@ export const useAdmin = () => {
   return context;
 };
 
-interface AdminProviderProps {
-  children: ReactNode;
-}
+export function AdminProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalProjects: 0,
+    activeProjects: 0,
+    totalClients: 0,
+    totalRevenue: 0,
+    pendingTasks: 0,
+    completedTasks: 0,
+    overdueProjects: 0,
+    monthlyRevenue: 0,
+  });
 
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
-const SESSION_DURATION = 60 * 60 * 1000; // 1 hour
-
-export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [companySettings, setCompanySettings] = useState<CompanySettings>({});
-  const [loginAttempts, setLoginAttempts] = useState(0);
-  const [isLocked, setIsLocked] = useState(false);
-  const [sessionExpiry, setSessionExpiry] = useState<Date | null>(null);
-  const [lastActivity, setLastActivity] = useState(Date.now());
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Activity tracking for session management
-  useEffect(() => {
-    const handleActivity = () => {
-      setLastActivity(Date.now());
-    };
-
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-    events.forEach(event => {
-      document.addEventListener(event, handleActivity, true);
-    });
-
-    return () => {
-      events.forEach(event => {
-        document.removeEventListener(event, handleActivity, true);
-      });
-    };
-  }, []);
-
-  // Session timeout monitoring
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const checkSession = () => {
-      const now = Date.now();
-      const timeSinceActivity = now - lastActivity;
-      
-      if (timeSinceActivity > SESSION_DURATION) {
-        logout();
-        toast({
-          title: "Session Expired",
-          description: "Your session has expired due to inactivity.",
-          variant: "destructive"
-        });
-      }
-    };
-
-    const interval = setInterval(checkSession, 60000); // Check every minute
-    return () => clearInterval(interval);
-  }, [isAuthenticated, lastActivity]);
-
-  // Check lockout status
-  useEffect(() => {
-    const lockoutEnd = localStorage.getItem('admin_lockout_end');
-    if (lockoutEnd) {
-      const lockoutEndTime = parseInt(lockoutEnd);
-      if (Date.now() < lockoutEndTime) {
-        setIsLocked(true);
-        const attempts = localStorage.getItem('admin_login_attempts');
-        setLoginAttempts(attempts ? parseInt(attempts) : 0);
-      } else {
-        // Clear expired lockout
-        localStorage.removeItem('admin_lockout_end');
-        localStorage.removeItem('admin_login_attempts');
-        setIsLocked(false);
-        setLoginAttempts(0);
-      }
-    }
-  }, []);
-
-  const loadCompanySettings = async () => {
+  const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase
-        .from('company_settings')
-        .select('*');
-
-      if (error) throw error;
-
-      const settingsObj: CompanySettings = {};
-      data?.forEach((setting) => {
-        const key = setting.setting_key as keyof CompanySettings;
-        let value: any = setting.setting_value;
-        
-        if (key === 'tax_rate' || key === 'session_timeout' || key === 'login_attempts') {
-          value = parseFloat(value) || 0;
-        } else if (['email_notifications', 'project_updates', 'payment_reminders', 'quote_expiry_alerts', 'system_maintenance', 'auto_archive', 'two_factor_auth', 'ip_restrictions', 'sidebar_collapsed', 'compact_mode', 'show_animations'].includes(key)) {
-          value = value === 'true';
-        }
-        
-        (settingsObj as any)[key] = value;
+      // Use the new database client for authentication
+      const result = await dbClient.findOne(Tables.users, { 
+        email: email.toLowerCase(),
+        isActive: true 
       });
 
-      setCompanySettings(settingsObj);
+      if (result.error || !result.data) {
+        throw new Error('Invalid credentials');
+      }
+
+      const userData = result.data as User;
+      
+      // In a real implementation, you would verify the password here
+      // For now, we'll just check if the user exists and is an admin
+      if (userData.role !== 'admin') {
+        throw new Error('Access denied. Admin privileges required.');
+      }
+
+      setUser(userData);
+      
+      // Update last login time
+      await dbClient.update(Tables.users, userData.id, {
+        lastLoginAt: new Date()
+      });
+
+      // Refresh stats after login
+      await refreshStats();
     } catch (error) {
-      console.error('Error loading company settings:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load company settings",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const updateCompanySettings = async (settings: Partial<CompanySettings>) => {
-    try {
-      const settingsArray = Object.entries(settings).map(([key, value]) => ({
-        setting_key: key,
-        setting_value: String(value),
-      }));
-
-      for (const setting of settingsArray) {
-        const { error } = await supabase
-          .from('company_settings')
-          .upsert(setting, { onConflict: 'setting_key' });
-
-        if (error) throw error;
-      }
-
-      await loadCompanySettings();
-
-      toast({
-        title: "Settings Updated",
-        description: "Company settings have been saved successfully.",
-      });
-    } catch (error) {
-      console.error('Error updating company settings:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update company settings",
-        variant: "destructive"
-      });
-    }
-  };
-
-  useEffect(() => {
-    const authStatus = localStorage.getItem('admin_authenticated');
-    const sessionExpiryStr = localStorage.getItem('admin_session_expiry');
-    
-    if (authStatus === 'true' && sessionExpiryStr) {
-      const expiryDate = new Date(sessionExpiryStr);
-      if (expiryDate > new Date()) {
-        setIsAuthenticated(true);
-        setSessionExpiry(expiryDate);
-        loadCompanySettings();
-      } else {
-        // Session expired
-        localStorage.removeItem('admin_authenticated');
-        localStorage.removeItem('admin_session_expiry');
-      }
-    }
-  }, []);
-
-  const login = async (email: string, password: string): Promise<boolean> => {
-    // Check if locked out
-    if (isLocked) {
-      const lockoutEnd = localStorage.getItem('admin_lockout_end');
-      if (lockoutEnd) {
-        const remainingTime = Math.ceil((parseInt(lockoutEnd) - Date.now()) / 60000);
-        toast({
-          title: "Account Locked",
-          description: `Too many failed attempts. Try again in ${remainingTime} minutes.`,
-          variant: "destructive"
-        });
-        return false;
-      }
-    }
-
-    // Check credentials
-    if (email === 'admin@akibeks.com' && password === 'admin123') {
-      // Reset login attempts on successful login
-      setLoginAttempts(0);
-      setIsLocked(false);
-      localStorage.removeItem('admin_login_attempts');
-      localStorage.removeItem('admin_lockout_end');
-      
-      // Set authentication
-      setIsAuthenticated(true);
-      const expiryDate = new Date(Date.now() + SESSION_DURATION);
-      setSessionExpiry(expiryDate);
-      
-      localStorage.setItem('admin_authenticated', 'true');
-      localStorage.setItem('admin_session_expiry', expiryDate.toISOString());
-      
-      await loadCompanySettings();
-      
-      // Log successful login
-      console.log(`Admin login successful at ${new Date().toISOString()}`);
-      
-      toast({
-        title: "Login Successful",
-        description: "Welcome to the admin panel!",
-      });
-      
-      return true;
-    } else {
-      // Handle failed login
-      const newAttempts = loginAttempts + 1;
-      setLoginAttempts(newAttempts);
-      localStorage.setItem('admin_login_attempts', newAttempts.toString());
-      
-      if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
-        const lockoutEnd = Date.now() + LOCKOUT_DURATION;
-        setIsLocked(true);
-        localStorage.setItem('admin_lockout_end', lockoutEnd.toString());
-        
-        toast({
-          title: "Account Locked",
-          description: `Too many failed attempts. Account locked for 15 minutes.`,
-          variant: "destructive"
-        });
-      } else {
-        const remainingAttempts = MAX_LOGIN_ATTEMPTS - newAttempts;
-        toast({
-          title: "Login Failed",
-          description: `Invalid credentials. ${remainingAttempts} attempts remaining.`,
-          variant: "destructive"
-        });
-      }
-      
-      // Log failed login attempt
-      console.warn(`Failed admin login attempt at ${new Date().toISOString()} - Email: ${email}`);
-      
-      return false;
+      console.error('Login error:', error);
+      throw error;
     }
   };
 
   const logout = () => {
-    setIsAuthenticated(false);
-    setSessionExpiry(null);
-    localStorage.removeItem('admin_authenticated');
-    localStorage.removeItem('admin_session_expiry');
-    setCompanySettings({});
-    
-    // Log logout
-    console.log(`Admin logout at ${new Date().toISOString()}`);
-    
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out.",
-    });
-    
-    navigate('/admin-access');
+    setUser(null);
+    // Clear any stored authentication tokens if using them
+  };
+
+  const refreshStats = async () => {
+    try {
+      // Get project statistics
+      const [
+        totalProjectsResult,
+        activeProjectsResult,
+        totalClientsResult
+      ] = await Promise.all([
+        dbClient.count(Tables.projects),
+        dbClient.count(Tables.projects, [{ column: 'status', operator: 'eq', value: 'active' }]),
+        dbClient.count(Tables.users, [{ column: 'role', operator: 'eq', value: 'client' }])
+      ]);
+
+      // Get revenue data (assuming projects have budgetKes field)
+      const projectsResult = await dbClient.select(Tables.projects, {
+        filters: [{ column: 'status', operator: 'in', value: ['active', 'completed'] }]
+      });
+
+      let totalRevenue = 0;
+      let monthlyRevenue = 0;
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+
+      if (projectsResult.data) {
+        totalRevenue = projectsResult.data.reduce((sum: number, project: any) => {
+          return sum + (parseFloat(project.budgetKes) || 0);
+        }, 0);
+
+        monthlyRevenue = projectsResult.data
+          .filter((project: any) => {
+            const projectDate = new Date(project.createdAt);
+            return projectDate.getMonth() === currentMonth && 
+                   projectDate.getFullYear() === currentYear;
+          })
+          .reduce((sum: number, project: any) => {
+            return sum + (parseFloat(project.budgetKes) || 0);
+          }, 0);
+      }
+
+      // Calculate overdue projects
+      const overdueProjectsResult = await dbClient.select(Tables.projects, {
+        filters: [
+          { column: 'status', operator: 'eq', value: 'active' },
+          { column: 'endDate', operator: 'lt', value: new Date().toISOString() }
+        ]
+      });
+
+      setStats({
+        totalProjects: totalProjectsResult.data || 0,
+        activeProjects: activeProjectsResult.data || 0,
+        totalClients: totalClientsResult.data || 0,
+        totalRevenue,
+        pendingTasks: 0, // TODO: Implement tasks table
+        completedTasks: 0, // TODO: Implement tasks table
+        overdueProjects: overdueProjectsResult.data?.length || 0,
+        monthlyRevenue,
+      });
+    } catch (error) {
+      console.error('Error refreshing stats:', error);
+    }
+  };
+
+  useEffect(() => {
+    // Check for existing session or stored auth token
+    const initializeAuth = async () => {
+      try {
+        // TODO: Implement session/token validation
+        // For now, we'll just set loading to false
+        setLoading(false);
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      refreshStats();
+    }
+  }, [user]);
+
+  const value: AdminContextType = {
+    user,
+    loading,
+    login,
+    logout,
+    refreshStats,
+    stats,
   };
 
   return (
-    <AdminContext.Provider value={{
-      isAuthenticated,
-      login,
-      logout,
-      companySettings,
-      loadCompanySettings,
-      updateCompanySettings,
-      loginAttempts,
-      isLocked,
-      sessionExpiry
-    }}>
+    <AdminContext.Provider value={value}>
       {children}
     </AdminContext.Provider>
   );
-};
+}

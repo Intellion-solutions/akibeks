@@ -24,7 +24,7 @@ import {
   AlertCircle,
   XCircle
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db-client";
 
 interface Invoice {
   id: string;

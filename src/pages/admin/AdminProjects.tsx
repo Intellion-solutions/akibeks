@@ -35,7 +35,7 @@ import {
   BarChart3,
   Activity
 } from "lucide-react";
-import { DatabaseService, mockData } from "@/lib/database";
+import { db } from "@/lib/db-client";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/contexts/AdminContext";
 import AdminLogin from "@/components/AdminLogin";

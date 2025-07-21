@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Download, Upload, Database, Shield, Calendar, FileText } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db-client";
 import { useAdmin } from "@/contexts/AdminContext";
 import AdminLogin from "@/components/AdminLogin";
 import AdminHeader from "@/components/AdminHeader";

@@ -4,6 +4,94 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- SEO Management Tables
+CREATE TABLE IF NOT EXISTS seo_configurations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    page_id VARCHAR(255) UNIQUE NOT NULL,
+    title TEXT,
+    description TEXT,
+    keywords TEXT[],
+    canonical_url TEXT,
+    og_image TEXT,
+    og_type VARCHAR(50),
+    twitter_card VARCHAR(50),
+    structured_data JSONB,
+    robots VARCHAR(100),
+    author VARCHAR(255),
+    publish_date TIMESTAMP,
+    modified_date TIMESTAMP,
+    locale VARCHAR(10),
+    alternate_languages JSONB,
+    breadcrumbs JSONB,
+    faq_data JSONB,
+    review_data JSONB,
+    business_data JSONB,
+    product_data JSONB,
+    article_data JSONB,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS sitemaps (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    type VARCHAR(50) UNIQUE NOT NULL,
+    content TEXT NOT NULL,
+    generated_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS seo_analytics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    page_id VARCHAR(255) NOT NULL,
+    analysis_date TIMESTAMP DEFAULT NOW(),
+    seo_score INTEGER NOT NULL,
+    title_score INTEGER,
+    description_score INTEGER,
+    keywords_score INTEGER,
+    headings_score INTEGER,
+    images_score INTEGER,
+    performance_score INTEGER,
+    structured_data_score INTEGER,
+    recommendations JSONB,
+    issues_count INTEGER DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'needs-attention',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS keyword_rankings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    keyword VARCHAR(255) NOT NULL,
+    page_url TEXT NOT NULL,
+    search_engine VARCHAR(50) DEFAULT 'google',
+    ranking_position INTEGER,
+    search_volume INTEGER,
+    difficulty_score INTEGER,
+    tracked_date DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS meta_redirects (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    source_url TEXT NOT NULL,
+    target_url TEXT NOT NULL,
+    redirect_type VARCHAR(10) DEFAULT '301',
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for SEO tables
+CREATE INDEX IF NOT EXISTS idx_seo_configurations_page_id ON seo_configurations(page_id);
+CREATE INDEX IF NOT EXISTS idx_seo_analytics_page_id ON seo_analytics(page_id);
+CREATE INDEX IF NOT EXISTS idx_seo_analytics_date ON seo_analytics(analysis_date);
+CREATE INDEX IF NOT EXISTS idx_keyword_rankings_keyword ON keyword_rankings(keyword);
+CREATE INDEX IF NOT EXISTS idx_keyword_rankings_date ON keyword_rankings(tracked_date);
+CREATE INDEX IF NOT EXISTS idx_meta_redirects_source ON meta_redirects(source_url);
+CREATE INDEX IF NOT EXISTS idx_sitemaps_type ON sitemaps(type);
+
 -- Users table
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -21,35 +109,59 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Clients table
+-- Clients table (Enhanced for Kenya)
 CREATE TABLE clients (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    company_name VARCHAR(255),
     email VARCHAR(255),
-    phone VARCHAR(50),
-    company VARCHAR(255),
+    phone VARCHAR(20) NOT NULL,
     address TEXT,
-    contact_person VARCHAR(255),
+    city VARCHAR(100),
+    county VARCHAR(100),
+    postal_code VARCHAR(10),
+    id_number VARCHAR(20),
+    kra_pin VARCHAR(20),
+    client_type VARCHAR(20) DEFAULT 'individual' CHECK (client_type IN ('individual', 'company')),
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'pending')),
+    credit_limit DECIMAL(15,2) DEFAULT 0,
+    outstanding_balance DECIMAL(15,2) DEFAULT 0,
+    total_projects INTEGER DEFAULT 0,
+    last_project_date DATE,
+    notes TEXT,
+    payment_terms VARCHAR(50) DEFAULT '30 days',
+    preferred_contact VARCHAR(20) DEFAULT 'phone' CHECK (preferred_contact IN ('phone', 'email', 'whatsapp')),
+    rating INTEGER DEFAULT 5 CHECK (rating >= 1 AND rating <= 5),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Projects table
+-- Projects table (Enhanced for Kenya)
 CREATE TABLE projects (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     status VARCHAR(50) DEFAULT 'planning' CHECK (status IN ('planning', 'active', 'on_hold', 'completed', 'cancelled')),
     priority VARCHAR(50) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
     client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
     manager_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    budget_kes DECIMAL(15,2),
     budget DECIMAL(15,2),
+    spent_amount_kes DECIMAL(15,2) DEFAULT 0,
     spent_amount DECIMAL(15,2) DEFAULT 0,
+    total_amount DECIMAL(15,2) DEFAULT 0,
+    currency VARCHAR(3) DEFAULT 'KES',
+    location VARCHAR(255),
+    county VARCHAR(100),
+    project_type VARCHAR(100),
     start_date DATE,
     end_date DATE,
     estimated_hours INTEGER,
     actual_hours INTEGER DEFAULT 0,
     completion_percentage INTEGER DEFAULT 0 CHECK (completion_percentage >= 0 AND completion_percentage <= 100),
+    featured_image TEXT,
+    gallery_images JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -85,42 +197,62 @@ CREATE TABLE time_entries (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Invoices table
+-- Invoices table (Enhanced for Kenya)
 CREATE TABLE invoices (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     invoice_number VARCHAR(100) UNIQUE NOT NULL,
     client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
     project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+    amount_kes DECIMAL(15,2) NOT NULL,
     amount DECIMAL(15,2) NOT NULL,
+    tax_amount_kes DECIMAL(15,2) DEFAULT 0,
     tax_amount DECIMAL(15,2) DEFAULT 0,
+    vat_amount DECIMAL(15,2) DEFAULT 0,
+    vat_rate DECIMAL(5,4) DEFAULT 0.16,
+    discount_amount_kes DECIMAL(15,2) DEFAULT 0,
     discount_amount DECIMAL(15,2) DEFAULT 0,
+    total_amount_kes DECIMAL(15,2) NOT NULL,
     total_amount DECIMAL(15,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'KES',
+    exchange_rate DECIMAL(10,4) DEFAULT 1.0000,
     status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'cancelled')),
     due_date DATE,
     paid_date DATE,
+    payment_method VARCHAR(50),
+    mpesa_reference VARCHAR(100),
     items JSONB,
     notes TEXT,
     terms TEXT,
+    description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Quotations table
+-- Quotations table (Enhanced for Kenya)
 CREATE TABLE quotations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     quote_number VARCHAR(100) UNIQUE NOT NULL,
     client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
     project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+    amount_kes DECIMAL(15,2) NOT NULL,
     amount DECIMAL(15,2) NOT NULL,
+    tax_amount_kes DECIMAL(15,2) DEFAULT 0,
     tax_amount DECIMAL(15,2) DEFAULT 0,
+    vat_amount DECIMAL(15,2) DEFAULT 0,
+    vat_rate DECIMAL(5,4) DEFAULT 0.16,
+    discount_amount_kes DECIMAL(15,2) DEFAULT 0,
     discount_amount DECIMAL(15,2) DEFAULT 0,
+    total_amount_kes DECIMAL(15,2) NOT NULL,
     total_amount DECIMAL(15,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'KES',
+    exchange_rate DECIMAL(10,4) DEFAULT 1.0000,
     status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'accepted', 'rejected', 'expired')),
     valid_until DATE,
     accepted_date DATE,
     items JSONB,
     notes TEXT,
     terms TEXT,
+    description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

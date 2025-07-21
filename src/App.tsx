@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from 'react-helmet-async';
 import { AdminProvider } from "@/contexts/AdminContext";
@@ -28,6 +28,7 @@ import AdminQuotations from "@/pages/admin/AdminQuotations";
 import AdminPersonnel from "@/pages/admin/AdminPersonnel";
 import AdminCalendar from "@/pages/admin/AdminCalendar";
 import AdminFileManager from "@/pages/admin/AdminFileManager";
+import AdminSEO from "@/pages/admin/AdminSEO";
 
 // Public Pages
 import Index from "@/pages/Index";
@@ -108,17 +109,21 @@ const App = () => (
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/submit-testimonial" element={<SubmitTestimonial />} />
+                
+                {/* Project Related Public Routes */}
                 <Route path="/milestone/:id" element={<MilestoneViewer />} />
                 <Route path="/create-project" element={<CreateProject />} />
+                
+                {/* Access Routes */}
                 <Route path="/admin-access" element={<AdminAccess />} />
                 
                 {/* Client Portal Routes */}
                 <Route path="/client-portal" element={<ClientPortal />} />
                 <Route path="/client" element={<ClientPortal />} />
-                <Route path="/invoices" element={<InvoiceManagement />} />
-                <Route path="/quotations" element={<QuotationManagement />} />
-                <Route path="/projects" element={<ProjectTracking />} />
-                <Route path="/project-dashboard" element={<ProjectDashboard />} />
+                <Route path="/client/invoices" element={<InvoiceManagement />} />
+                <Route path="/client/quotations" element={<QuotationManagement />} />
+                <Route path="/client/projects" element={<ProjectTracking />} />
+                <Route path="/client/dashboard" element={<ProjectDashboard />} />
                 
                 {/* Admin Routes */}
                 <Route path="/admin" element={<AdminDashboard />} />
@@ -142,8 +147,9 @@ const App = () => (
                 <Route path="/admin/personnel" element={<AdminPersonnel />} />
                 <Route path="/admin/calendar" element={<AdminCalendar />} />
                 <Route path="/admin/files" element={<AdminFileManager />} />
+                <Route path="/admin/seo" element={<AdminSEO />} />
                 
-                {/* 404 Page */}
+                {/* 404 Page - Must be last */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
