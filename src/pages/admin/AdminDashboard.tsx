@@ -18,6 +18,8 @@ import {
   Plus,
   BarChart3,
   Activity,
+  Shield,
+  Folder,
   Building2,
   Wrench,
   AlertTriangle
@@ -208,6 +210,34 @@ const AdminDashboard: React.FC = () => {
       icon: Building2,
       onClick: () => navigate('/admin/projects'),
       color: "bg-purple-500"
+    },
+    {
+      title: "SEO Management",
+      description: "Optimize website SEO",
+      icon: TrendingUp,
+      onClick: () => navigate('/admin/seo'),
+      color: "bg-indigo-500"
+    },
+    {
+      title: "Manage Personnel",
+      description: "Admin user management",
+      icon: Shield,
+      onClick: () => navigate('/admin/personnel'),
+      color: "bg-red-500"
+    },
+    {
+      title: "Calendar & Events",
+      description: "Schedule management",
+      icon: Calendar,
+      onClick: () => navigate('/admin/calendar'),
+      color: "bg-teal-500"
+    },
+    {
+      title: "File Manager",
+      description: "Upload & organize files",
+      icon: Folder,
+      onClick: () => navigate('/admin/files'),
+      color: "bg-yellow-500"
     },
     {
       title: "Manage Services",

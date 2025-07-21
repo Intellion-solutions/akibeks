@@ -261,8 +261,19 @@ export class SEOManager {
       },
       "address": {
         "@type": "PostalAddress",
-        "addressCountry": "Kenya",
-        "addressLocality": "Nairobi"
+        "streetAddress": "Westlands",
+        "addressLocality": "Nairobi",
+        "addressRegion": "Nairobi County",
+        "postalCode": "00100",
+        "addressCountry": "KE"
+      },
+      "currenciesAccepted": "KES",
+      "priceRange": "KES 50,000 - KES 5,000,000",
+      "foundingDate": "2008",
+      "numberOfEmployees": "50-100",
+      "areaServed": {
+        "@type": "Country",
+        "name": "Kenya"
       },
       "sameAs": [
         "https://facebook.com/akibeks",

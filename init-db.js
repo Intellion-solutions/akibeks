@@ -33,37 +33,87 @@ async function initializeDatabase() {
       true
     ]);
 
-    // Create sample clients
+    // Create sample clients (Kenya-focused)
     const clients = [
       {
-        name: 'Tech Solutions Inc.',
-        email: 'contact@techsolutions.com',
-        phone: '+1 (555) 123-4567',
-        company: 'Tech Solutions Inc.',
-        address: '123 Technology Drive, San Francisco, CA 94105'
+        full_name: 'John Kamau Mwangi',
+        email: 'john.mwangi@gmail.com',
+        phone: '+254722123456',
+        company_name: 'Nairobi Tech Solutions Ltd.',
+        address: 'Westlands Commercial Centre, Waiyaki Way',
+        city: 'Nairobi',
+        county: 'nairobi',
+        postal_code: '00100',
+        id_number: '12345678',
+        kra_pin: 'A123456789X',
+        client_type: 'company',
+        status: 'active',
+        credit_limit: 500000.00,
+        outstanding_balance: 150000.00,
+        total_projects: 3,
+        notes: 'Reliable client with good payment history',
+        payment_terms: '30 days',
+        preferred_contact: 'phone',
+        rating: 5
       },
       {
-        name: 'Creative Agency Co.',
-        email: 'hello@creativeagency.com',
-        phone: '+1 (555) 987-6543',
-        company: 'Creative Agency Co.',
-        address: '456 Design Street, New York, NY 10001'
+        full_name: 'Mary Wanjiku Njeri',
+        email: 'mary.njeri@yahoo.com',
+        phone: '+254733987654',
+        company_name: 'Mombasa Design Studios',
+        address: 'Nyali Cinemax Complex, Links Road',
+        city: 'Mombasa',
+        county: 'mombasa',
+        postal_code: '80100',
+        id_number: '87654321',
+        kra_pin: 'B987654321Y',
+        client_type: 'company',
+        status: 'active',
+        credit_limit: 300000.00,
+        outstanding_balance: 75000.00,
+        total_projects: 2,
+        notes: 'Creative agency specializing in hospitality sector',
+        payment_terms: '14 days',
+        preferred_contact: 'email',
+        rating: 4
       },
       {
-        name: 'Global Retail Corp.',
-        email: 'info@globalretail.com',
-        phone: '+1 (555) 456-7890',
-        company: 'Global Retail Corp.',
-        address: '789 Commerce Blvd, Chicago, IL 60601'
+        full_name: 'Peter Ochieng Odhiambo',
+        email: 'p.ochieng@email.com',
+        phone: '+254700555777',
+        address: 'Milimani Estate, Off Oginga Odinga Street',
+        city: 'Kisumu',
+        county: 'kisumu',
+        postal_code: '40100',
+        id_number: '11223344',
+        kra_pin: 'C112233449Z',
+        client_type: 'individual',
+        status: 'active',
+        credit_limit: 100000.00,
+        outstanding_balance: 0.00,
+        total_projects: 1,
+        notes: 'Individual client building family home',
+        payment_terms: '7 days',
+        preferred_contact: 'whatsapp',
+        rating: 5
       }
     ];
 
     for (const client of clients) {
       await client.query(`
-        INSERT INTO clients (name, email, phone, company, address, created_at)
-        VALUES ($1, $2, $3, $4, $5, NOW())
+        INSERT INTO clients (
+          full_name, email, phone, company_name, address, city, county, postal_code,
+          id_number, kra_pin, client_type, status, credit_limit, outstanding_balance,
+          total_projects, notes, payment_terms, preferred_contact, rating, created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW(), NOW())
         ON CONFLICT (email) DO NOTHING
-      `, [client.name, client.email, client.phone, client.company, client.address]);
+      `, [
+        client.full_name, client.email, client.phone, client.company_name, client.address,
+        client.city, client.county, client.postal_code, client.id_number, client.kra_pin,
+        client.client_type, client.status, client.credit_limit, client.outstanding_balance,
+        client.total_projects, client.notes, client.payment_terms, client.preferred_contact, client.rating
+      ]);
     }
 
     // Create sample projects
@@ -72,50 +122,86 @@ async function initializeDatabase() {
 
     const projects = [
       {
-        title: 'E-commerce Website Redesign',
-        description: 'Complete redesign of the company e-commerce platform with modern UI/UX',
+        title: 'Modern Office Complex Construction',
+        name: 'Modern Office Complex Construction',
+        description: 'Construction of a 5-story modern office complex in Westlands with parking and modern amenities',
         status: 'active',
         priority: 'high',
-        budget: 50000.00,
+        budget_kes: 15000000.00,
+        budget: 15000000.00,
+        total_amount: 15000000.00,
+        currency: 'KES',
+        location: 'Westlands, Nairobi',
+        county: 'Nairobi',
+        project_type: 'Commercial Construction',
         start_date: new Date('2024-01-15'),
-        end_date: new Date('2024-06-15'),
+        end_date: new Date('2024-12-15'),
+        completion_percentage: 35,
         client_id: clientIds[0]
       },
       {
-        title: 'Mobile App Development',
-        description: 'Native mobile application for iOS and Android platforms',
+        title: 'Resort Hotel Construction',
+        name: 'Resort Hotel Construction',
+        description: 'Construction of a luxury beachfront resort hotel in Diani with 100 rooms and conference facilities',
         status: 'planning',
         priority: 'medium',
-        budget: 75000.00,
+        budget_kes: 25000000.00,
+        budget: 25000000.00,
+        total_amount: 25000000.00,
+        currency: 'KES',
+        location: 'Diani Beach, Mombasa',
+        county: 'Mombasa',
+        project_type: 'Hospitality Construction',
         start_date: new Date('2024-03-01'),
         end_date: new Date('2024-09-01'),
+        completion_percentage: 5,
         client_id: clientIds[1]
       },
       {
-        title: 'Brand Identity Package',
-        description: 'Complete brand identity design including logo, guidelines, and marketing materials',
+        title: 'Family Home Construction',
+        name: 'Family Home Construction',
+        description: 'Construction of a modern 4-bedroom family home with swimming pool and landscaping',
         status: 'completed',
         priority: 'medium',
-        budget: 25000.00,
+        budget_kes: 8000000.00,
+        budget: 8000000.00,
+        total_amount: 8000000.00,
+        currency: 'KES',
+        location: 'Milimani, Kisumu',
+        county: 'Kisumu',
+        project_type: 'Residential Construction',
         start_date: new Date('2023-10-01'),
         end_date: new Date('2024-01-31'),
+        completion_percentage: 100,
         client_id: clientIds[2]
       }
     ];
 
     for (const project of projects) {
       await client.query(`
-        INSERT INTO projects (title, description, status, priority, budget, start_date, end_date, client_id, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        INSERT INTO projects (
+          title, name, description, status, priority, budget_kes, budget, total_amount, 
+          currency, location, county, project_type, start_date, end_date, 
+          completion_percentage, client_id, created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
         ON CONFLICT DO NOTHING
-      `, [
+              `, [
         project.title,
+        project.name,
         project.description,
         project.status,
         project.priority,
+        project.budget_kes,
         project.budget,
+        project.total_amount,
+        project.currency,
+        project.location,
+        project.county,
+        project.project_type,
         project.start_date,
         project.end_date,
+        project.completion_percentage,
         project.client_id
       ]);
     }

@@ -109,35 +109,59 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Clients table
+-- Clients table (Enhanced for Kenya)
 CREATE TABLE clients (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    company_name VARCHAR(255),
     email VARCHAR(255),
-    phone VARCHAR(50),
-    company VARCHAR(255),
+    phone VARCHAR(20) NOT NULL,
     address TEXT,
-    contact_person VARCHAR(255),
+    city VARCHAR(100),
+    county VARCHAR(100),
+    postal_code VARCHAR(10),
+    id_number VARCHAR(20),
+    kra_pin VARCHAR(20),
+    client_type VARCHAR(20) DEFAULT 'individual' CHECK (client_type IN ('individual', 'company')),
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'pending')),
+    credit_limit DECIMAL(15,2) DEFAULT 0,
+    outstanding_balance DECIMAL(15,2) DEFAULT 0,
+    total_projects INTEGER DEFAULT 0,
+    last_project_date DATE,
+    notes TEXT,
+    payment_terms VARCHAR(50) DEFAULT '30 days',
+    preferred_contact VARCHAR(20) DEFAULT 'phone' CHECK (preferred_contact IN ('phone', 'email', 'whatsapp')),
+    rating INTEGER DEFAULT 5 CHECK (rating >= 1 AND rating <= 5),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Projects table
+-- Projects table (Enhanced for Kenya)
 CREATE TABLE projects (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     status VARCHAR(50) DEFAULT 'planning' CHECK (status IN ('planning', 'active', 'on_hold', 'completed', 'cancelled')),
     priority VARCHAR(50) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
     client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
     manager_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    budget_kes DECIMAL(15,2),
     budget DECIMAL(15,2),
+    spent_amount_kes DECIMAL(15,2) DEFAULT 0,
     spent_amount DECIMAL(15,2) DEFAULT 0,
+    total_amount DECIMAL(15,2) DEFAULT 0,
+    currency VARCHAR(3) DEFAULT 'KES',
+    location VARCHAR(255),
+    county VARCHAR(100),
+    project_type VARCHAR(100),
     start_date DATE,
     end_date DATE,
     estimated_hours INTEGER,
     actual_hours INTEGER DEFAULT 0,
     completion_percentage INTEGER DEFAULT 0 CHECK (completion_percentage >= 0 AND completion_percentage <= 100),
+    featured_image TEXT,
+    gallery_images JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -173,42 +197,62 @@ CREATE TABLE time_entries (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Invoices table
+-- Invoices table (Enhanced for Kenya)
 CREATE TABLE invoices (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     invoice_number VARCHAR(100) UNIQUE NOT NULL,
     client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
     project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+    amount_kes DECIMAL(15,2) NOT NULL,
     amount DECIMAL(15,2) NOT NULL,
+    tax_amount_kes DECIMAL(15,2) DEFAULT 0,
     tax_amount DECIMAL(15,2) DEFAULT 0,
+    vat_amount DECIMAL(15,2) DEFAULT 0,
+    vat_rate DECIMAL(5,4) DEFAULT 0.16,
+    discount_amount_kes DECIMAL(15,2) DEFAULT 0,
     discount_amount DECIMAL(15,2) DEFAULT 0,
+    total_amount_kes DECIMAL(15,2) NOT NULL,
     total_amount DECIMAL(15,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'KES',
+    exchange_rate DECIMAL(10,4) DEFAULT 1.0000,
     status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'cancelled')),
     due_date DATE,
     paid_date DATE,
+    payment_method VARCHAR(50),
+    mpesa_reference VARCHAR(100),
     items JSONB,
     notes TEXT,
     terms TEXT,
+    description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Quotations table
+-- Quotations table (Enhanced for Kenya)
 CREATE TABLE quotations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     quote_number VARCHAR(100) UNIQUE NOT NULL,
     client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
     project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+    amount_kes DECIMAL(15,2) NOT NULL,
     amount DECIMAL(15,2) NOT NULL,
+    tax_amount_kes DECIMAL(15,2) DEFAULT 0,
     tax_amount DECIMAL(15,2) DEFAULT 0,
+    vat_amount DECIMAL(15,2) DEFAULT 0,
+    vat_rate DECIMAL(5,4) DEFAULT 0.16,
+    discount_amount_kes DECIMAL(15,2) DEFAULT 0,
     discount_amount DECIMAL(15,2) DEFAULT 0,
+    total_amount_kes DECIMAL(15,2) NOT NULL,
     total_amount DECIMAL(15,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'KES',
+    exchange_rate DECIMAL(10,4) DEFAULT 1.0000,
     status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'accepted', 'rejected', 'expired')),
     valid_until DATE,
     accepted_date DATE,
     items JSONB,
     notes TEXT,
     terms TEXT,
+    description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

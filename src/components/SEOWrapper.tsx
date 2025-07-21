@@ -283,29 +283,29 @@ function getPageSpecificSEO(pageId: string): Partial<SEOConfig> {
       title: 'AKIBEKS Engineering Solutions - Premier Construction Company in Kenya',
       description: 'Leading construction and engineering company in Kenya. We deliver exceptional residential, commercial, and civil engineering projects with over 15 years of experience.',
       keywords: ['construction company kenya', 'engineering solutions', 'building construction', 'civil engineering', 'residential construction', 'commercial projects', 'akibeks'],
-      businessData: {
-        name: 'AKIBEKS Engineering Solutions',
-        type: 'ConstructionCompany',
-        address: {
-          streetAddress: 'Nairobi',
-          addressLocality: 'Nairobi',
-          addressRegion: 'Nairobi',
-          postalCode: '00100',
-          addressCountry: 'Kenya'
+              businessData: {
+          name: 'AKIBEKS Engineering Solutions',
+          type: 'ConstructionCompany',
+          address: {
+            streetAddress: 'Westlands, Nairobi',
+            addressLocality: 'Nairobi',
+            addressRegion: 'Nairobi County',
+            postalCode: '00100',
+            addressCountry: 'KE'
+          },
+          telephone: '+254-710-245-118',
+          email: 'info@akibeks.co.ke',
+          url: 'https://akibeks.co.ke',
+          logo: 'https://akibeks.co.ke/logo.png',
+          image: ['https://akibeks.co.ke/hero-image.jpg'],
+          openingHours: ['Mo-Fr 07:00-17:00', 'Sa 08:00-16:00'],
+          priceRange: 'KES 50,000 - KES 5,000,000',
+          areaServed: ['Kenya', 'Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret'],
+          serviceType: ['Construction', 'Civil Engineering', 'Project Management', 'Architectural Design'],
+          foundingDate: '2008',
+          numberOfEmployees: '50-100',
+          slogan: 'Building Kenya\'s Future, Engineering Excellence'
         },
-        telephone: '+254-710-245-118',
-        email: 'info@akibeks.co.ke',
-        url: 'https://akibeks.co.ke',
-        logo: 'https://akibeks.co.ke/logo.png',
-        image: ['https://akibeks.co.ke/hero-image.jpg'],
-        openingHours: ['Mo-Fr 08:00-18:00', 'Sa 08:00-16:00'],
-        priceRange: '$$',
-        areaServed: ['Kenya', 'East Africa'],
-        serviceType: ['Construction', 'Engineering', 'Project Management'],
-        foundingDate: '2008',
-        numberOfEmployees: '50-100',
-        slogan: 'Building Excellence, Engineering the Future'
-      },
       reviewData: {
         reviewCount: 150,
         averageRating: 4.8,
