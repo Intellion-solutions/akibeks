@@ -1,17 +1,19 @@
 import { drizzle, PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
+import databaseConfigModule, { validateDatabaseConfig } from '../config/database.config.js';
 
-// Simple database configuration from environment variables
-const DATABASE_URL = process.env.DATABASE_URL || 
-  `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASS || 'password'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'akibeks_db'}`;
+// Validate configuration before creating connection
+if (!validateDatabaseConfig()) {
+  throw new Error('Invalid database configuration');
+}
 
-// Create connection with simplified configuration
-const sql = postgres(DATABASE_URL, {
-  max: parseInt(process.env.DB_POOL_MAX || '10'),
-  idle_timeout: parseInt(process.env.DB_IDLE_TIMEOUT || '30'),
-  connect_timeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '10'),
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+// Create connection with secure configuration
+const sql = postgres(databaseConfigModule.database.url, {
+  max: databaseConfigModule.database.pool.max,
+  idle_timeout: databaseConfigModule.database.pool.idle,
+  connect_timeout: databaseConfigModule.database.pool.acquire,
+  ssl: databaseConfigModule.database.ssl,
 });
 
 // Initialize Drizzle with the connection and schema

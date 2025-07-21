@@ -3,28 +3,18 @@ import { z } from 'zod';
 import { emailSchema, createEmailTemplateSchema } from '../../shared/schemas';
 import { EMAIL_STATUS, EMAIL_CATEGORIES } from '../../shared/constants';
 import type { EmailTemplate, EmailLog, ApiResponse } from '../../shared/types';
-
-// SMTP Configuration
-const SMTP_CONFIG = {
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  }
-};
+import smtpConfigModule, { validateSMTPConfig } from '../config/smtp.config.js';
 
 // Create transporter
 const createTransporter = () => {
+  // Validate configuration before creating transporter
+  if (!validateSMTPConfig()) {
+    throw new Error('Invalid SMTP configuration');
+  }
+  
   return nodemailer.createTransporter({
-    host: SMTP_CONFIG.host,
-    port: SMTP_CONFIG.port,
-    secure: SMTP_CONFIG.secure,
-    auth: SMTP_CONFIG.auth,
-    tls: {
-      rejectUnauthorized: false
-    }
+    ...smtpConfigModule.smtp,
+    tls: smtpConfigModule.smtp.tls
   });
 };
 

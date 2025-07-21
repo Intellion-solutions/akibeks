@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Phone, Mail, MapPin, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { APP_CONFIG, PAGES_CONFIG } from '../../../shared/constants';
+import { APP_CONFIG, PAGES_CONFIG } from '@shared/constants';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

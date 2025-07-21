@@ -13,7 +13,7 @@ import {
   ArrowUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { APP_CONFIG, PAGES_CONFIG } from '../../../shared/constants';
+import { APP_CONFIG, PAGES_CONFIG } from '@shared/constants';
 
 const Footer = () => {
   const scrollToTop = () => {

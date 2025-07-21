@@ -1,445 +1,273 @@
-# Professional Project Management Platform
+# AKIBEKS Engineering Solutions
 
-A comprehensive project management system built with React, TypeScript, and PostgreSQL. This platform provides everything you need to manage projects efficiently, from planning to delivery, with features including project tracking, invoicing, time management, analytics, and team collaboration tools.
+A modern, full-stack web application for engineering and construction services in Kenya. Built with React, TypeScript, Node.js, and PostgreSQL.
 
-## 🚀 Features
+## 🚀 Quick Start
 
-### 📊 **Project Management**
-- **Comprehensive Project Tracking** - Monitor project progress with milestones, deadlines, and team collaboration
-- **Task Management** - Create, assign, and track tasks with priority levels and due dates
-- **Team Collaboration** - Real-time collaboration tools and communication features
-- **Project Analytics** - Detailed insights and reporting for data-driven decisions
-- **Resource Planning** - Efficient allocation and management of project resources
+### Prerequisites
+- Node.js 18+ 
+- PostgreSQL 12+
+- npm or yarn
 
-### 💰 **Financial Management**
-- **Smart Invoicing** - Automated invoice generation with customizable templates
-- **Quotation System** - Professional quotation creation and management
-- **Payment Tracking** - Monitor payments and outstanding amounts
-- **Budget Management** - Track project budgets and expenses
-- **Financial Reports** - Comprehensive financial analytics and reporting
-
-### ⏰ **Time & Resource Tracking**
-- **Accurate Time Logging** - Detailed time tracking for better project cost management
-- **Billable Hours Tracking** - Separate billable and non-billable time entries
-- **Resource Utilization** - Monitor team performance and productivity
-- **Automated Timesheets** - Generate detailed timesheets for payroll and billing
-
-### 👥 **User & Client Management**
-- **User Roles & Permissions** - Admin, Manager, and User roles with appropriate access levels
-- **Client Portal** - Dedicated portals for seamless client communication
-- **Team Management** - Organize teams and assign project roles
-- **User Analytics** - Track user activity and performance metrics
-
-### 🎨 **Template Designer**
-- **Editable Templates** - Create and customize invoice and quotation templates
-- **Live Preview** - Real-time preview with scaling for different devices
-- **Template Gallery** - Pre-built templates with professional designs
-- **Brand Customization** - Add company logos, colors, and branding elements
-
-### 📈 **Analytics & Reporting**
-- **Real-time Dashboard** - Live insights with KPIs and performance metrics
-- **Custom Reports** - Generate detailed reports for projects, finances, and team performance
-- **Data Visualization** - Charts and graphs for better data understanding
-- **Export Capabilities** - Export reports in various formats (PDF, CSV, Excel)
-
-### 🔧 **Advanced Features**
-- **Workflow Automation** - Streamline repetitive tasks with intelligent automation
-- **Notification System** - Real-time notifications for important updates
-- **Document Management** - Centralized document storage and sharing
-- **Backup & Security** - Automated backups with enterprise-level security
-
-## 🛠️ Technology Stack
-
-### **Frontend**
-- **React 18** - Modern UI framework with hooks and functional components
-- **TypeScript** - Type-safe development for better code quality
-- **Tailwind CSS** - Utility-first CSS framework for rapid UI development
-- **shadcn/ui** - Beautiful and accessible UI components
-- **Lucide React** - Modern icon library with 1000+ icons
-- **React Router** - Client-side routing for single-page application
-- **React Hook Form** - Performant forms with easy validation
-- **Recharts** - Responsive chart library built on D3.js
-
-### **Backend & Database**
-- **PostgreSQL** - Robust relational database with JSONB support
-- **Node.js** - JavaScript runtime for server-side development
-- **pg** - Non-blocking PostgreSQL client for Node.js
-- **UUID** - Universally unique identifiers for database records
-
-### **Development Tools**
-- **Vite** - Fast build tool and development server
-- **ESLint** - Code linting for consistent code style
-- **TypeScript ESLint** - TypeScript-specific linting rules
-- **PostCSS** - Tool for transforming CSS with JavaScript
-
-## 📦 Installation & Setup
-
-### **Prerequisites**
-- Node.js (v18 or higher)
-- PostgreSQL (v12 or higher)
-- npm or yarn package manager
-
-### **1. Clone the Repository**
+### One-Command Setup
 ```bash
-git clone <repository-url>
-cd project-management-platform
+bash setup.sh
 ```
 
-### **2. Install Dependencies**
+This will:
+- Install all dependencies
+- Create environment files
+- Check system requirements
+
+### Manual Setup
 ```bash
-npm install
-```
+# 1. Install dependencies
+npm run install:all
 
-### **3. Database Setup**
+# 2. Setup environment variables
+cp .env.example backend/.env
+# Edit backend/.env with your database credentials
 
-#### **Create PostgreSQL Database**
-```bash
-# Connect to PostgreSQL
-psql -U postgres
+# 3. Setup database
+npm run db:setup
 
-# Create database
-CREATE DATABASE project_management;
-
-# Exit PostgreSQL
-\q
-```
-
-#### **Run Database Schema**
-```bash
-# Run the schema file to create tables and sample data
-psql -U postgres -d project_management -f database_schema.sql
-```
-
-### **4. Environment Configuration**
-
-#### **Copy Environment File**
-```bash
-cp .env.example .env
-```
-
-#### **Configure Environment Variables**
-Edit the `.env` file with your database credentials:
-
-```env
-# Database Configuration
-DATABASE_URL=postgresql://username:password@localhost:5432/project_management
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=project_management
-DB_USER=your_username
-DB_PASSWORD=your_password
-
-# Server Configuration
-PORT=5000
-NODE_ENV=development
-
-# JWT Configuration
-JWT_SECRET=your-super-secret-jwt-key-here
-JWT_EXPIRES_IN=7d
-
-# Email Configuration
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-email-password
-EMAIL_FROM=noreply@yourcompany.com
-
-# App Configuration
-APP_NAME=Project Management System
-APP_URL=http://localhost:3000
-FRONTEND_URL=http://localhost:3000
-BACKEND_URL=http://localhost:5000
-```
-
-### **5. Start Development Server**
-```bash
+# 4. Start development servers
 npm run dev
 ```
 
-The application will be available at `http://localhost:3000`
+## 📱 Access Points
 
-### **6. Default Login Credentials**
-- **Email:** `admin@company.com`
-- **Password:** `admin123`
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:3000/api
+- **Database Studio**: http://localhost:4983 (run `npm run db:studio`)
+- **API Documentation**: http://localhost:3000/api
 
-## 🚀 Usage Guide
-
-### **Getting Started**
-1. **Login** - Use the default admin credentials to access the system
-2. **Dashboard** - Navigate to the main dashboard to view project overview
-3. **Create Project** - Start by creating your first project
-4. **Add Team Members** - Invite users and assign appropriate roles
-5. **Track Progress** - Use tasks, time tracking, and milestones to monitor progress
-
-### **Admin Features**
-- **User Management** - Create, edit, and manage user accounts
-- **System Settings** - Configure system-wide settings and preferences
-- **Analytics Dashboard** - View comprehensive system analytics
-- **Template Management** - Create and customize document templates
-- **Backup Management** - Configure and monitor system backups
-
-### **Project Management**
-- **Create Projects** - Set up projects with clients, budgets, and timelines
-- **Task Assignment** - Break down projects into manageable tasks
-- **Time Tracking** - Log time spent on tasks and projects
-- **Progress Monitoring** - Track project completion and milestones
-- **Team Collaboration** - Communicate and collaborate with team members
-
-### **Financial Management**
-- **Generate Invoices** - Create professional invoices from project data
-- **Send Quotations** - Prepare and send quotations to potential clients
-- **Track Payments** - Monitor invoice payments and outstanding amounts
-- **Financial Reports** - Generate detailed financial reports and analytics
-
-## 📁 Project Structure
+## 🏗️ Project Structure
 
 ```
-src/
-├── components/          # Reusable UI components
-│   ├── ui/             # shadcn/ui components
-│   ├── AdminHeader.tsx # Admin navigation header
-│   ├── AdminLogin.tsx  # Admin authentication
-│   └── ...
-├── contexts/           # React context providers
-│   ├── AdminContext.tsx # Admin authentication context
-│   └── ...
-├── hooks/              # Custom React hooks
-│   ├── use-toast.ts    # Toast notification hook
-│   └── ...
-├── lib/                # Utility libraries
-│   ├── database.ts     # PostgreSQL database service
-│   └── utils.ts        # Common utility functions
-├── pages/              # Page components
-│   ├── admin/          # Admin dashboard pages
-│   │   ├── AdminAnalytics.tsx
-│   │   ├── AdminUsers.tsx
-│   │   ├── AdminTemplates.tsx
+akibeks-engineering-solutions/
+├── frontend/                 # React Frontend (Vite + TypeScript)
+│   ├── src/
+│   │   ├── components/       # React components
+│   │   ├── pages/           # Page components
+│   │   ├── lib/             # Utilities & API client
 │   │   └── ...
-│   ├── Index.tsx       # Homepage
-│   ├── ProjectDashboard.tsx
-│   └── ...
-├── App.tsx             # Main application component
-├── main.tsx           # Application entry point
-└── index.css          # Global styles
+│   └── package.json
+│
+├── backend/                  # Node.js Backend (Express + TypeScript)
+│   ├── src/
+│   │   ├── routes/          # API routes
+│   │   ├── services/        # Business logic
+│   │   ├── middleware/      # Express middleware
+│   │   └── ...
+│   ├── database/            # Database schema & migrations
+│   └── package.json
+│
+├── shared/                   # Shared code
+│   ├── types/               # TypeScript types
+│   ├── constants/           # App constants
+│   └── schemas/             # Validation schemas
+│
+└── package.json             # Root workspace
 ```
 
-## 🔧 Configuration
+## 🛠️ Development Commands
 
-### **Database Configuration**
-The system uses PostgreSQL with the following key features:
-- **UUID Primary Keys** - For better security and distributed systems
-- **JSONB Fields** - For flexible data storage (templates, settings)
-- **Triggers** - Automatic timestamp updates
-- **Indexes** - Optimized for performance
-- **Foreign Keys** - Data integrity and relationships
-
-### **Environment Variables**
-All configuration is managed through environment variables:
-- **Database settings** - Connection details and credentials
-- **Server configuration** - Port, environment, URLs
-- **Security settings** - JWT secrets, encryption keys
-- **Email configuration** - SMTP settings for notifications
-- **Application settings** - Company info, defaults, features
-
-### **Role-Based Access Control**
-The system implements three user roles:
-- **Admin** - Full system access and management capabilities
-- **Manager** - Project management and team oversight
-- **User** - Project participation and time tracking
-
-## 🛡️ Security Features
-
-### **Authentication & Authorization**
-- **JWT-based authentication** - Secure token-based login system
-- **Role-based access control** - Granular permissions by user role
-- **Password hashing** - Bcrypt encryption for password security
-- **Session management** - Secure session handling and timeouts
-
-### **Data Protection**
-- **SQL injection prevention** - Parameterized queries and input validation
-- **XSS protection** - Input sanitization and output encoding
-- **CSRF protection** - Cross-site request forgery prevention
-- **Data encryption** - Sensitive data encryption at rest and in transit
-
-### **Audit & Monitoring**
-- **Activity logging** - Comprehensive audit trail for all actions
-- **Access monitoring** - Track user login and access patterns
-- **Error logging** - Detailed error tracking and reporting
-- **Performance monitoring** - System performance and health metrics
-
-## 📊 API Documentation
-
-### **Database Service Methods**
-
-#### **User Management**
-```typescript
-// Create new user
-DatabaseService.createUser(userData)
-
-// Get user by email
-DatabaseService.getUserByEmail(email)
-
-// Update user information
-DatabaseService.updateUser(id, updates)
-
-// Get all users
-DatabaseService.getAllUsers()
-```
-
-#### **Project Management**
-```typescript
-// Create project
-DatabaseService.createProject(projectData)
-
-// Get all projects
-DatabaseService.getAllProjects()
-
-// Update project
-DatabaseService.updateProject(id, updates)
-
-// Get project analytics
-DatabaseService.getProjectAnalytics()
-```
-
-#### **Time Tracking**
-```typescript
-// Create time entry
-DatabaseService.createTimeEntry(timeData)
-
-// Get time entries by project
-DatabaseService.getTimeEntriesByProject(projectId)
-
-// Get all time entries
-DatabaseService.getAllTimeEntries()
-```
-
-## 🧪 Testing
-
-### **Running Tests**
+### Root Commands
 ```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Generate test coverage report
-npm run test:coverage
+npm run dev              # Start both frontend & backend
+npm run build            # Build both applications
+npm run start            # Start production server
+npm run install:all      # Install all dependencies
+npm run clean            # Clean all node_modules
+npm run reset            # Clean + reinstall everything
 ```
 
-### **Test Structure**
-- **Unit Tests** - Individual component and function testing
-- **Integration Tests** - Database and API endpoint testing
-- **E2E Tests** - Complete user workflow testing
-- **Performance Tests** - Load and stress testing
-
-## 🚀 Deployment
-
-### **Production Build**
+### Frontend Commands
 ```bash
-# Build for production
+cd frontend
+npm run dev              # Start development server
+npm run build            # Build for production
+npm run preview          # Preview production build
+```
+
+### Backend Commands
+```bash
+cd backend
+npm run dev              # Start development server
+npm run build            # Build TypeScript
+npm start                # Start production server
+```
+
+### Database Commands
+```bash
+npm run db:setup         # Complete database setup
+npm run db:generate      # Generate migrations
+npm run db:migrate       # Apply migrations
+npm run db:studio        # Open database studio
+```
+
+## 🌍 Environment Variables
+
+### Backend (.env)
+```env
+# Database
+DATABASE_URL=postgresql://user:pass@localhost:5432/akibeks_db
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=akibeks_db
+DB_USER=postgres
+DB_PASS=your_password
+
+# JWT
+JWT_SECRET=your-super-secure-jwt-secret
+
+# SMTP (Email)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+
+# Application
+NODE_ENV=development
+PORT=3000
+FRONTEND_URL=http://localhost:5173
+```
+
+### Frontend (.env)
+```env
+VITE_API_URL=http://localhost:3000/api
+VITE_APP_NAME=AKIBEKS Engineering Solutions
+VITE_APP_URL=http://localhost:5173
+```
+
+## 🔒 Security Features
+
+- **JWT Authentication** - Secure token-based authentication
+- **Role-based Access** - Admin, employee, client, user roles
+- **Input Validation** - Zod schema validation
+- **Rate Limiting** - Protection against abuse
+- **CORS Protection** - Cross-origin resource sharing
+- **Helmet Security** - Security headers
+- **Environment Separation** - Secure configuration management
+
+## 🇰🇪 Kenya-Specific Features
+
+- **Currency**: Kenyan Shilling (KES) formatting
+- **Phone Numbers**: +254 format validation
+- **KRA PIN**: Kenyan tax PIN validation
+- **Timezone**: Africa/Nairobi support
+- **VAT**: 16% VAT rate for Kenya
+- **Localization**: English (Kenya) locale
+
+## 📊 Key Features
+
+### 🏢 **Core Business**
+- Project management and tracking
+- Service catalog and pricing
+- Client relationship management
+- Contact form handling
+- Testimonial collection
+
+### 📧 **Communication**
+- SMTP email integration
+- Contact notifications
+- Quotation emails
+- Welcome emails
+- Template system
+
+### 👥 **User Management**
+- User registration and authentication
+- Role-based permissions
+- Activity logging
+- Profile management
+
+### 💻 **Technical**
+- TypeScript throughout
+- React with modern hooks
+- Express.js REST API
+- PostgreSQL database
+- Drizzle ORM
+- Zod validation
+- Tailwind CSS
+
+## 🚀 Production Deployment
+
+### Build for Production
+```bash
 npm run build
-
-# Preview production build
-npm run preview
 ```
 
-### **Environment Setup**
-1. **Production Database** - Set up PostgreSQL instance
-2. **Environment Variables** - Configure production environment
-3. **SSL Certificates** - Set up HTTPS for security
-4. **Domain Configuration** - Configure domain and DNS
-5. **Monitoring** - Set up logging and monitoring tools
+### Environment Setup
+1. Set `NODE_ENV=production`
+2. Update database credentials
+3. Configure SMTP settings
+4. Set secure JWT secret
 
-### **Deployment Options**
-- **Docker** - Containerized deployment with Docker Compose
-- **Cloud Platforms** - Deploy to AWS, Google Cloud, or Azure
-- **VPS** - Traditional virtual private server deployment
-- **Static Hosting** - Frontend deployment to Netlify, Vercel, or similar
+### Deployment Options
+- **Traditional VPS**: Ubuntu server with PM2
+- **Docker**: Container deployment
+- **Cloud Platforms**: AWS, DigitalOcean, Railway
+- **Database**: PostgreSQL on cloud provider
+
+## 📚 API Documentation
+
+The API provides comprehensive endpoints for:
+
+- **Authentication**: `/api/auth/*`
+- **Projects**: `/api/projects/*`
+- **Services**: `/api/services/*`
+- **Contact**: `/api/contact/*`
+- **Testimonials**: `/api/testimonials/*`
+- **File Upload**: `/api/upload/*`
+- **Email**: `/api/email/*`
+
+Visit `/api` endpoint for complete API documentation.
 
 ## 🤝 Contributing
 
-### **Development Workflow**
-1. **Fork the repository**
-2. **Create feature branch** - `git checkout -b feature/amazing-feature`
-3. **Commit changes** - `git commit -m 'Add amazing feature'`
-4. **Push to branch** - `git push origin feature/amazing-feature`
-5. **Open Pull Request**
-
-### **Code Standards**
-- **TypeScript** - Strict type checking enabled
-- **ESLint** - Follow established linting rules
-- **Prettier** - Code formatting consistency
-- **Conventional Commits** - Standardized commit messages
-
-### **Pull Request Guidelines**
-- **Clear description** - Explain the changes and reasoning
-- **Test coverage** - Include tests for new features
-- **Documentation** - Update documentation for API changes
-- **Review process** - Address feedback promptly
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see LICENSE file for details.
 
-## 🆘 Support
+## 🆘 Troubleshooting
 
-### **Documentation**
-- **User Guide** - Comprehensive user documentation
-- **API Reference** - Complete API documentation
-- **Video Tutorials** - Step-by-step video guides
-- **FAQ** - Frequently asked questions
+### Common Issues
 
-### **Community Support**
-- **GitHub Issues** - Bug reports and feature requests
-- **Discussion Forum** - Community discussions and help
-- **Stack Overflow** - Technical questions and answers
-- **Discord/Slack** - Real-time community chat
+**Build fails with import errors:**
+```bash
+npm run clean
+npm run reset
+```
 
-### **Professional Support**
-- **Consulting Services** - Custom development and integration
-- **Training Programs** - Team training and onboarding
-- **Priority Support** - Dedicated support for enterprise customers
-- **Custom Development** - Tailored features and modifications
+**Database connection fails:**
+1. Check PostgreSQL is running
+2. Verify credentials in `.env`
+3. Run `npm run db:setup`
 
-## 🔮 Roadmap
+**SMTP emails not sending:**
+1. Check SMTP credentials
+2. Enable "Less secure apps" for Gmail
+3. Use App Password for Gmail
 
-### **Upcoming Features**
-- **Mobile App** - Native iOS and Android applications
-- **Advanced Analytics** - Machine learning-powered insights
-- **API Integration** - Third-party service integrations
-- **Workflow Automation** - Advanced automation capabilities
-- **Multi-language Support** - Internationalization and localization
+**Port already in use:**
+```bash
+# Kill processes on ports
+lsof -ti:3000 | xargs kill -9
+lsof -ti:5173 | xargs kill -9
+```
 
-### **Long-term Goals**
-- **Enterprise Features** - Advanced enterprise-grade capabilities
-- **White-label Solution** - Customizable branding and deployment
-- **Marketplace** - Plugin and extension marketplace
-- **AI Integration** - Artificial intelligence-powered features
-
-## 📈 Performance
-
-### **Optimization Features**
-- **Lazy Loading** - Component and route-based code splitting
-- **Database Indexing** - Optimized database queries and indexes
-- **Caching** - Intelligent caching strategies for better performance
-- **CDN Integration** - Content delivery network for static assets
-
-### **Scalability**
-- **Horizontal Scaling** - Support for multiple server instances
-- **Database Sharding** - Distribute data across multiple databases
-- **Microservices** - Modular architecture for better scalability
-- **Load Balancing** - Distribute traffic across multiple servers
+### Support
+- **Email**: dev@akibeks.co.ke
+- **Documentation**: See `docs/` directory
+- **Issues**: GitHub Issues
 
 ---
 
-**Built with ❤️ for project management excellence**
-
-For more information, visit our [documentation](docs/) or [contact us](mailto:support@projectmanagement.com).
-
-## 📞 Contact
-
-- **Email:** support@projectmanagement.com
-- **Website:** https://projectmanagement.com
-- **Twitter:** @ProjectMgmtSys
-- **LinkedIn:** /company/project-management-system
+**Built with ❤️ for AKIBEKS Engineering Solutions**
