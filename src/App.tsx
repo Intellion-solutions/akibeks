@@ -28,6 +28,7 @@ import AdminQuotations from "@/pages/admin/AdminQuotations";
 import AdminPersonnel from "@/pages/admin/AdminPersonnel";
 import AdminCalendar from "@/pages/admin/AdminCalendar";
 import AdminFileManager from "@/pages/admin/AdminFileManager";
+import AdminSEO from "@/pages/admin/AdminSEO";
 
 // Public Pages
 import Index from "@/pages/Index";
@@ -146,6 +147,7 @@ const App = () => (
                 <Route path="/admin/personnel" element={<AdminPersonnel />} />
                 <Route path="/admin/calendar" element={<AdminCalendar />} />
                 <Route path="/admin/files" element={<AdminFileManager />} />
+                <Route path="/admin/seo" element={<AdminSEO />} />
                 
                 {/* 404 Page - Must be last */}
                 <Route path="*" element={<NotFound />} />

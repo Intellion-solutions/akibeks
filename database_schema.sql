@@ -4,6 +4,94 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- SEO Management Tables
+CREATE TABLE IF NOT EXISTS seo_configurations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    page_id VARCHAR(255) UNIQUE NOT NULL,
+    title TEXT,
+    description TEXT,
+    keywords TEXT[],
+    canonical_url TEXT,
+    og_image TEXT,
+    og_type VARCHAR(50),
+    twitter_card VARCHAR(50),
+    structured_data JSONB,
+    robots VARCHAR(100),
+    author VARCHAR(255),
+    publish_date TIMESTAMP,
+    modified_date TIMESTAMP,
+    locale VARCHAR(10),
+    alternate_languages JSONB,
+    breadcrumbs JSONB,
+    faq_data JSONB,
+    review_data JSONB,
+    business_data JSONB,
+    product_data JSONB,
+    article_data JSONB,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS sitemaps (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    type VARCHAR(50) UNIQUE NOT NULL,
+    content TEXT NOT NULL,
+    generated_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS seo_analytics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    page_id VARCHAR(255) NOT NULL,
+    analysis_date TIMESTAMP DEFAULT NOW(),
+    seo_score INTEGER NOT NULL,
+    title_score INTEGER,
+    description_score INTEGER,
+    keywords_score INTEGER,
+    headings_score INTEGER,
+    images_score INTEGER,
+    performance_score INTEGER,
+    structured_data_score INTEGER,
+    recommendations JSONB,
+    issues_count INTEGER DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'needs-attention',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS keyword_rankings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    keyword VARCHAR(255) NOT NULL,
+    page_url TEXT NOT NULL,
+    search_engine VARCHAR(50) DEFAULT 'google',
+    ranking_position INTEGER,
+    search_volume INTEGER,
+    difficulty_score INTEGER,
+    tracked_date DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS meta_redirects (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    source_url TEXT NOT NULL,
+    target_url TEXT NOT NULL,
+    redirect_type VARCHAR(10) DEFAULT '301',
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for SEO tables
+CREATE INDEX IF NOT EXISTS idx_seo_configurations_page_id ON seo_configurations(page_id);
+CREATE INDEX IF NOT EXISTS idx_seo_analytics_page_id ON seo_analytics(page_id);
+CREATE INDEX IF NOT EXISTS idx_seo_analytics_date ON seo_analytics(analysis_date);
+CREATE INDEX IF NOT EXISTS idx_keyword_rankings_keyword ON keyword_rankings(keyword);
+CREATE INDEX IF NOT EXISTS idx_keyword_rankings_date ON keyword_rankings(tracked_date);
+CREATE INDEX IF NOT EXISTS idx_meta_redirects_source ON meta_redirects(source_url);
+CREATE INDEX IF NOT EXISTS idx_sitemaps_type ON sitemaps(type);
+
 -- Users table
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
