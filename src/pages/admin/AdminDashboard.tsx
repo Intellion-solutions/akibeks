@@ -21,7 +21,7 @@ import {
   Building2,
   Wrench
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db-client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import AdminPageHeader from '@/components/admin/AdminPageHeader';

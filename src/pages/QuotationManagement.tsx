@@ -26,7 +26,7 @@ import {
   Plus,
   Edit
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db-client";
 
 interface Quotation {
   id: string;

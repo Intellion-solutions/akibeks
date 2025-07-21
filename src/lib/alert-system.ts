@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "./db-client";
 import { ErrorHandler } from "./error-handling";
 import { QueueManager } from "./queue-manager";
 import { SMTPService } from "./smtp-service";

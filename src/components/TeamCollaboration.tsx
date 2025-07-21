@@ -37,7 +37,7 @@ import {
   Pin,
   Archive
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db-client";
 
 interface TeamMember {
   id: string;

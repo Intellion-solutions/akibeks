@@ -28,7 +28,7 @@ import {
   Wrench,
   DollarSign
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db-client";
 import { useToast } from "@/hooks/use-toast";
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 
