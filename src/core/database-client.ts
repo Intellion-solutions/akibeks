@@ -1,607 +1,485 @@
-import { eq, desc, asc, and, or, sql, like, count, sum } from 'drizzle-orm';
-import type { PgDatabase } from 'drizzle-orm/pg-core';
-import * as schema from '../database/schema';
+import { eq, and, or, gte, lte, desc, asc, count, like, ilike } from 'drizzle-orm';
+import { DATABASE_CONFIG } from '../../config.js';
+import { 
+  users, 
+  projects, 
+  services, 
+  contactSubmissions, 
+  testimonials,
+  seoConfigurations 
+} from '../database/schema';
 
-// Database operation interfaces
-export interface QueryOptions {
+// Type definitions for common database operations
+export interface QueryFilters {
+  where?: any;
+  orderBy?: any;
   limit?: number;
   offset?: number;
-  orderBy?: string;
-  orderDirection?: 'asc' | 'desc';
-  filters?: FilterOption[];
+  select?: any;
 }
 
-export interface FilterOption {
-  column: string;
-  operator: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'like' | 'in';
-  value: any;
-}
-
-export interface DatabaseResult<T = any> {
-  data: T | T[] | null;
-  error: Error | null;
+export interface DatabaseOperationResult<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
   count?: number;
 }
 
-export interface PaginatedResult<T = any> {
-  data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-}
-
-// Table names enum for type safety
-export enum Tables {
-  users = 'users',
-  projects = 'projects',
-  services = 'services',
-  contactSubmissions = 'contactSubmissions',
-  testimonials = 'testimonials',
-  activityLogs = 'activityLogs',
-  sessions = 'sessions',
-  errorLogs = 'errorLogs',
-  seoConfigurations = 'seoConfigurations',
-  sitemaps = 'sitemaps',
-  seoAnalytics = 'seoAnalytics',
-  keywordRankings = 'keywordRankings',
-  metaRedirects = 'metaRedirects',
-  robotsConfig = 'robotsConfig',
-  schemaTemplates = 'schemaTemplates'
-}
-
-// Mock data for development/browser environment
-const mockData = {
-  users: [
-    {
-      id: '1',
-      email: 'admin@akibeks.co.ke',
-      firstName: 'Admin',
-      lastName: 'User',
-      role: 'admin',
-      isActive: true,
-      phoneNumber: '+254712345678',
-      county: 'Nairobi',
-      createdAt: new Date().toISOString(),
-      lastLoginAt: new Date().toISOString()
-    },
-    {
-      id: '2',
-      email: 'client@example.com',
-      firstName: 'John',
-      lastName: 'Doe',
-      role: 'client',
-      isActive: true,
-      phoneNumber: '+254787654321',
-      county: 'Mombasa',
-      createdAt: new Date().toISOString(),
-      lastLoginAt: null
-    }
-  ],
-  projects: [
-    {
-      id: '1',
-      title: 'Residential Complex in Nairobi',
-      description: 'Modern residential complex with 50 units',
-      status: 'active',
-      budgetKes: 15000000,
-      clientId: '2',
-      location: 'Westlands, Nairobi',
-      county: 'Nairobi',
-      completionPercentage: 65,
-      featured: true,
-      imageUrl: '/images/project-1.jpg',
-      startDate: new Date('2024-01-15').toISOString(),
-      endDate: new Date('2024-12-31').toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isActive: true
-    },
-    {
-      id: '2',
-      title: 'Commercial Building in Mombasa',
-      description: 'Office complex with retail space',
-      status: 'planning',
-      budgetKes: 25000000,
-      clientId: '2',
-      location: 'CBD, Mombasa',
-      county: 'Mombasa',
-      completionPercentage: 0,
-      featured: false,
-      imageUrl: '/images/project-2.jpg',
-      startDate: new Date('2024-03-01').toISOString(),
-      endDate: new Date('2025-06-30').toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isActive: true
-    }
-  ],
-  services: [
-    {
-      id: '1',
-      title: 'Residential Construction',
-      description: 'Complete residential building services from foundation to finishing',
-      category: 'construction',
-      icon: 'home',
-      features: ['Foundation work', 'Structural construction', 'Finishing work', 'Interior design'],
-      priceRangeMin: 500000,
-      priceRangeMax: 10000000,
-      durationEstimate: '6-18 months',
-      active: true,
-      featured: true,
-      imageUrl: '/images/service-residential.jpg',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: '2',
-      title: 'Commercial Construction',
-      description: 'Office buildings, retail spaces, and commercial complexes',
-      category: 'construction',
-      icon: 'building',
-      features: ['Commercial design', 'Large-scale construction', 'MEP systems', 'Project management'],
-      priceRangeMin: 2000000,
-      priceRangeMax: 50000000,
-      durationEstimate: '12-36 months',
-      active: true,
-      featured: true,
-      imageUrl: '/images/service-commercial.jpg',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ],
-  contactSubmissions: [],
-  testimonials: [
-    {
-      id: '1',
-      name: 'Mary Wanjiku',
-      company: 'Wanjiku Enterprises',
-      position: 'CEO',
-      message: 'AKIBEKS delivered our office building on time and within budget. Excellent work!',
-      rating: 5,
-      approved: true,
-      featured: true,
-      location: 'Nairobi',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ],
-  activityLogs: [],
-  sessions: [],
-  errorLogs: [],
-  seoConfigurations: [],
-  sitemaps: [],
-  seoAnalytics: [],
-  keywordRankings: [],
-  metaRedirects: [],
-  robotsConfig: [],
-  schemaTemplates: []
-};
-
-// Enhanced Database Client with proper SQL operations
+// Unified Database Client that works in both server and browser environments
 export class DatabaseClient {
-  private static instance: DatabaseClient;
-  private isServerEnvironment: boolean;
-  private db: PgDatabase<typeof schema> | null = null;
+  private isServer: boolean;
+  private db: any;
+  private mockData: any;
 
-  private constructor() {
-    this.isServerEnvironment = typeof window === 'undefined' && typeof global !== 'undefined';
-    if (this.isServerEnvironment) {
-      this.initializeServerDatabase();
-    }
-  }
-
-  public static getInstance(): DatabaseClient {
-    if (!DatabaseClient.instance) {
-      DatabaseClient.instance = new DatabaseClient();
-    }
-    return DatabaseClient.instance;
-  }
-
-  private async initializeServerDatabase(): Promise<void> {
-    try {
-      if (this.isServerEnvironment) {
-        const { db } = await import('../database/connection');
+  constructor() {
+    this.isServer = typeof window === 'undefined';
+    
+    if (this.isServer) {
+      // Server-side: Use actual PostgreSQL connection
+      try {
+        const { db } = require('../database/connection');
         this.db = db;
-        console.log('PostgreSQL database client initialized successfully');
+      } catch (error) {
+        console.warn('Database connection not available:', error);
+        this.db = null;
       }
-    } catch (error) {
-      console.error('Failed to initialize database:', error);
-      // Fall back to mock data in case of database connection issues
+    } else {
+      // Browser-side: Use mock data
+      this.initializeMockData();
     }
   }
 
-  // Generic CRUD operations
-  async select<T>(tableName: string, options: QueryOptions = {}): Promise<DatabaseResult<T[]>> {
-    try {
-      if (this.db && this.isServerEnvironment) {
-        // Server-side: Use actual database
-        const table = this.getTable(tableName);
-        if (!table) {
-          throw new Error(`Table ${tableName} not found`);
+  private initializeMockData() {
+    this.mockData = {
+      users: [
+        {
+          id: '1',
+          email: 'admin@akibeks.co.ke',
+          firstName: 'Admin',
+          lastName: 'User',
+          role: 'admin',
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
-
-        let query = this.db.select().from(table);
-
-        // Apply filters
-        if (options.filters && options.filters.length > 0) {
-          const conditions = options.filters.map(filter => {
-            const column = table[filter.column];
-            if (!column) return null;
-
-            switch (filter.operator) {
-              case 'eq': return eq(column, filter.value);
-              case 'ne': return sql`${column} != ${filter.value}`;
-              case 'gt': return sql`${column} > ${filter.value}`;
-              case 'lt': return sql`${column} < ${filter.value}`;
-              case 'gte': return sql`${column} >= ${filter.value}`;
-              case 'lte': return sql`${column} <= ${filter.value}`;
-              case 'like': return like(column, `%${filter.value}%`);
-              case 'in': return sql`${column} = ANY(${filter.value})`;
-              default: return null;
-            }
-          }).filter(Boolean);
-
-          if (conditions.length > 0) {
-            query = query.where(and(...conditions));
-          }
+      ],
+      projects: [
+        {
+          id: '1',
+          title: 'Modern Office Complex',
+          description: 'A state-of-the-art office building in Nairobi CBD',
+          status: 'in_progress',
+          priority: 'high',
+          startDate: new Date('2024-01-15'),
+          estimatedEndDate: new Date('2024-12-31'),
+          budget: 15000000, // KES
+          clientId: '1',
+          assignedToId: '1',
+          progress: 65,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: '2',
+          title: 'Residential Villa Project',
+          description: 'Luxury villa construction in Karen',
+          status: 'planning',
+          priority: 'medium',
+          startDate: new Date('2024-03-01'),
+          estimatedEndDate: new Date('2025-02-28'),
+          budget: 8500000, // KES
+          clientId: '2',
+          assignedToId: '1',
+          progress: 25,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
-
-        // Apply ordering
-        if (options.orderBy) {
-          const column = table[options.orderBy];
-          if (column) {
-            query = options.orderDirection === 'desc' 
-              ? query.orderBy(desc(column))
-              : query.orderBy(asc(column));
-          }
+      ],
+      services: [
+        {
+          id: '1',
+          name: 'Architectural Design',
+          description: 'Complete architectural design services for residential and commercial projects',
+          category: 'design',
+          price: 250000, // KES
+          duration: '4-8 weeks',
+          isActive: true,
+          features: ['3D Modeling', 'Technical Drawings', 'Site Planning'],
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: '2',
+          name: 'Construction Management',
+          description: 'Full project management from foundation to completion',
+          category: 'construction',
+          price: 500000, // KES
+          duration: '6-18 months',
+          isActive: true,
+          features: ['Project Planning', 'Quality Control', 'Timeline Management'],
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
-
-        // Apply pagination
-        if (options.limit) {
-          query = query.limit(options.limit);
+      ],
+      contactSubmissions: [],
+      testimonials: [
+        {
+          id: '1',
+          clientName: 'John Kamau',
+          companyName: 'Kamau Enterprises',
+          rating: 5,
+          message: 'AKIBEKS Engineering delivered our office complex on time and within budget. Exceptional quality!',
+          projectId: '1',
+          isApproved: true,
+          createdAt: new Date()
         }
-        if (options.offset) {
-          query = query.offset(options.offset);
+      ],
+      seoConfigurations: [
+        {
+          id: '1',
+          pageUrl: '/',
+          title: 'AKIBEKS Engineering Solutions - Leading Construction Company in Kenya',
+          description: 'Premier engineering and construction services in Kenya. Architectural design, project management, and sustainable building solutions.',
+          keywords: ['construction Kenya', 'engineering services', 'architectural design', 'project management'],
+          ogTitle: 'AKIBEKS Engineering Solutions',
+          ogDescription: 'Leading construction and engineering company in Kenya',
+          ogImage: '/images/akibeks-logo.jpg',
+          canonicalUrl: 'https://akibeks.co.ke/',
+          robotsDirective: 'index,follow',
+          structuredData: {},
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
-
-        const result = await query.execute();
-        return { data: result as T[], error: null };
-      } else {
-        // Browser environment: Use mock data
-        const data = (mockData as any)[tableName] || [];
-        let filteredData = [...data];
-
-        // Apply filters to mock data
-        if (options.filters) {
-          filteredData = filteredData.filter(item => {
-            return options.filters!.every(filter => {
-              const value = item[filter.column];
-              switch (filter.operator) {
-                case 'eq': return value === filter.value;
-                case 'ne': return value !== filter.value;
-                case 'gt': return value > filter.value;
-                case 'lt': return value < filter.value;
-                case 'gte': return value >= filter.value;
-                case 'lte': return value <= filter.value;
-                case 'like': return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
-                case 'in': return Array.isArray(filter.value) && filter.value.includes(value);
-                default: return true;
-              }
-            });
-          });
-        }
-
-        // Apply ordering to mock data
-        if (options.orderBy) {
-          filteredData.sort((a, b) => {
-            const aVal = a[options.orderBy!];
-            const bVal = b[options.orderBy!];
-            const comparison = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-            return options.orderDirection === 'desc' ? -comparison : comparison;
-          });
-        }
-
-        // Apply pagination to mock data
-        if (options.offset) {
-          filteredData = filteredData.slice(options.offset);
-        }
-        if (options.limit) {
-          filteredData = filteredData.slice(0, options.limit);
-        }
-
-        return { data: filteredData as T[], error: null };
-      }
-    } catch (error) {
-      console.error(`Error selecting from ${tableName}:`, error);
-      return { data: [], error: error as Error };
-    }
-  }
-
-  async selectPaginated<T>(
-    tableName: string, 
-    page: number = 1, 
-    pageSize: number = 10, 
-    options: Omit<QueryOptions, 'limit' | 'offset'> = {}
-  ): Promise<PaginatedResult<T>> {
-    try {
-      const offset = (page - 1) * pageSize;
-      
-      // Get total count
-      const countResult = await this.count(tableName, options.filters);
-      const total = countResult.data || 0;
-      
-      // Get paginated data
-      const result = await this.select<T>(tableName, {
-        ...options,
-        limit: pageSize,
-        offset
-      });
-
-      const totalPages = Math.ceil(total / pageSize);
-
-      return {
-        data: result.data || [],
-        total,
-        page,
-        pageSize,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      };
-    } catch (error) {
-      console.error(`Error in paginated select from ${tableName}:`, error);
-      return {
-        data: [],
-        total: 0,
-        page,
-        pageSize,
-        totalPages: 0,
-        hasNext: false,
-        hasPrev: false
-      };
-    }
-  }
-
-  async findOne<T>(tableName: string, filters: Record<string, any>): Promise<DatabaseResult<T>> {
-    const filterOptions = Object.entries(filters).map(([column, value]) => ({
-      column,
-      operator: 'eq' as const,
-      value
-    }));
-
-    const result = await this.select<T>(tableName, { 
-      filters: filterOptions, 
-      limit: 1 
-    });
-
-    return {
-      data: result.data && result.data.length > 0 ? result.data[0] : null,
-      error: result.error
+      ]
     };
   }
 
-  async insert<T>(tableName: string, data: any): Promise<DatabaseResult<T>> {
+  // Generic query method
+  async query<T>(
+    table: string, 
+    filters?: QueryFilters
+  ): Promise<DatabaseOperationResult<T[]>> {
     try {
-      if (this.db && this.isServerEnvironment) {
-        const table = this.getTable(tableName);
-        if (!table) {
-          throw new Error(`Table ${tableName} not found`);
+      if (this.isServer && this.db) {
+        // Server-side database query
+        const tableMap: { [key: string]: any } = {
+          users,
+          projects,
+          services,
+          contactSubmissions,
+          testimonials,
+          seoConfigurations
+        };
+
+        const targetTable = tableMap[table];
+        if (!targetTable) {
+          throw new Error(`Table ${table} not found`);
         }
 
-        const result = await this.db.insert(table).values(data).returning().execute();
-        return { data: result[0] as T, error: null };
-      } else {
-        // Browser environment: Simulate insert
-        const newItem = {
-          id: Math.random().toString(36).substr(2, 9),
-          ...data,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        
-        const mockTable = (mockData as any)[tableName];
-        if (mockTable) {
-          mockTable.push(newItem);
+        let query = this.db.select().from(targetTable);
+
+        // Apply filters
+        if (filters?.where) {
+          query = query.where(filters.where);
         }
-        
-        return { data: newItem as T, error: null };
+
+        if (filters?.orderBy) {
+          query = query.orderBy(filters.orderBy);
+        }
+
+        if (filters?.limit) {
+          query = query.limit(filters.limit);
+        }
+
+        if (filters?.offset) {
+          query = query.offset(filters.offset);
+        }
+
+        const result = await query;
+        return { success: true, data: result };
+      } else {
+        // Browser-side mock data
+        const data = this.mockData[table] || [];
+        let filteredData = [...data];
+
+        // Apply basic filtering for mock data
+        if (filters?.limit) {
+          filteredData = filteredData.slice(0, filters.limit);
+        }
+
+        return { success: true, data: filteredData };
       }
     } catch (error) {
-      console.error(`Error inserting into ${tableName}:`, error);
-      return { data: null, error: error as Error };
+      console.error(`Query error for table ${table}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        data: []
+      };
     }
   }
 
-  async update<T>(tableName: string, id: string, data: any): Promise<DatabaseResult<T>> {
+  // Generic insert method
+  async insert<T>(
+    table: string, 
+    data: Partial<T>
+  ): Promise<DatabaseOperationResult<T>> {
     try {
-      if (this.db && this.isServerEnvironment) {
-        const table = this.getTable(tableName);
-        if (!table) {
-          throw new Error(`Table ${tableName} not found`);
+      if (this.isServer && this.db) {
+        // Server-side database insert
+        const tableMap: { [key: string]: any } = {
+          users,
+          projects,
+          services,
+          contactSubmissions,
+          testimonials,
+          seoConfigurations
+        };
+
+        const targetTable = tableMap[table];
+        if (!targetTable) {
+          throw new Error(`Table ${table} not found`);
         }
 
-        const updateData = {
+        const result = await this.db.insert(targetTable).values(data).returning();
+        return { success: true, data: result[0] };
+      } else {
+        // Browser-side mock data
+        const newItem = {
+          ...data,
+          id: Date.now().toString(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        if (!this.mockData[table]) {
+          this.mockData[table] = [];
+        }
+
+        this.mockData[table].push(newItem);
+        return { success: true, data: newItem as T };
+      }
+    } catch (error) {
+      console.error(`Insert error for table ${table}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  // Generic update method
+  async update<T>(
+    table: string, 
+    id: string, 
+    data: Partial<T>
+  ): Promise<DatabaseOperationResult<T>> {
+    try {
+      if (this.isServer && this.db) {
+        // Server-side database update
+        const tableMap: { [key: string]: any } = {
+          users,
+          projects,
+          services,
+          contactSubmissions,
+          testimonials,
+          seoConfigurations
+        };
+
+        const targetTable = tableMap[table];
+        if (!targetTable) {
+          throw new Error(`Table ${table} not found`);
+        }
+
+        const result = await this.db
+          .update(targetTable)
+          .set({ ...data, updatedAt: new Date() })
+          .where(eq(targetTable.id, id))
+          .returning();
+
+        return { success: true, data: result[0] };
+      } else {
+        // Browser-side mock data
+        const items = this.mockData[table] || [];
+        const index = items.findIndex((item: any) => item.id === id);
+
+        if (index === -1) {
+          throw new Error(`Item with id ${id} not found`);
+        }
+
+        const updatedItem = {
+          ...items[index],
           ...data,
           updatedAt: new Date()
         };
 
-        const result = await this.db
-          .update(table)
-          .set(updateData)
-          .where(eq(table.id, id))
-          .returning()
-          .execute();
-
-        return { data: result[0] as T, error: null };
-      } else {
-        // Browser environment: Simulate update
-        const mockTable = (mockData as any)[tableName];
-        if (mockTable) {
-          const index = mockTable.findIndex((item: any) => item.id === id);
-          if (index !== -1) {
-            mockTable[index] = {
-              ...mockTable[index],
-              ...data,
-              updatedAt: new Date().toISOString()
-            };
-            return { data: mockTable[index] as T, error: null };
-          }
-        }
-        
-        throw new Error('Record not found');
+        this.mockData[table][index] = updatedItem;
+        return { success: true, data: updatedItem as T };
       }
     } catch (error) {
-      console.error(`Error updating ${tableName}:`, error);
-      return { data: null, error: error as Error };
-    }
-  }
-
-  async delete(tableName: string, id: string): Promise<DatabaseResult<boolean>> {
-    try {
-      if (this.db && this.isServerEnvironment) {
-        const table = this.getTable(tableName);
-        if (!table) {
-          throw new Error(`Table ${tableName} not found`);
-        }
-
-        await this.db.delete(table).where(eq(table.id, id)).execute();
-        return { data: true, error: null };
-      } else {
-        // Browser environment: Simulate delete
-        const mockTable = (mockData as any)[tableName];
-        if (mockTable) {
-          const index = mockTable.findIndex((item: any) => item.id === id);
-          if (index !== -1) {
-            mockTable.splice(index, 1);
-            return { data: true, error: null };
-          }
-        }
-        
-        throw new Error('Record not found');
-      }
-    } catch (error) {
-      console.error(`Error deleting from ${tableName}:`, error);
-      return { data: false, error: error as Error };
-    }
-  }
-
-  async count(tableName: string, filters?: FilterOption[]): Promise<DatabaseResult<number>> {
-    try {
-      if (this.db && this.isServerEnvironment) {
-        const table = this.getTable(tableName);
-        if (!table) {
-          throw new Error(`Table ${tableName} not found`);
-        }
-
-        let query = this.db.select({ count: count() }).from(table);
-
-        if (filters && filters.length > 0) {
-          const conditions = filters.map(filter => {
-            const column = table[filter.column];
-            if (!column) return null;
-
-            switch (filter.operator) {
-              case 'eq': return eq(column, filter.value);
-              case 'ne': return sql`${column} != ${filter.value}`;
-              case 'gt': return sql`${column} > ${filter.value}`;
-              case 'lt': return sql`${column} < ${filter.value}`;
-              case 'gte': return sql`${column} >= ${filter.value}`;
-              case 'lte': return sql`${column} <= ${filter.value}`;
-              case 'like': return like(column, `%${filter.value}%`);
-              case 'in': return sql`${column} = ANY(${filter.value})`;
-              default: return null;
-            }
-          }).filter(Boolean);
-
-          if (conditions.length > 0) {
-            query = query.where(and(...conditions));
-          }
-        }
-
-        const result = await query.execute();
-        return { data: result[0]?.count || 0, error: null };
-      } else {
-        // Browser environment: Count mock data
-        let data = (mockData as any)[tableName] || [];
-        
-        if (filters) {
-          data = data.filter((item: any) => {
-            return filters.every(filter => {
-              const value = item[filter.column];
-              switch (filter.operator) {
-                case 'eq': return value === filter.value;
-                case 'ne': return value !== filter.value;
-                case 'gt': return value > filter.value;
-                case 'lt': return value < filter.value;
-                case 'gte': return value >= filter.value;
-                case 'lte': return value <= filter.value;
-                case 'like': return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
-                case 'in': return Array.isArray(filter.value) && filter.value.includes(value);
-                default: return true;
-              }
-            });
-          });
-        }
-        
-        return { data: data.length, error: null };
-      }
-    } catch (error) {
-      console.error(`Error counting ${tableName}:`, error);
-      return { data: 0, error: error as Error };
-    }
-  }
-
-  // Health check
-  async checkHealth(): Promise<{ isHealthy: boolean; message: string }> {
-    try {
-      if (this.db && this.isServerEnvironment) {
-        const { checkDatabaseHealth } = await import('../database/connection');
-        const health = await checkDatabaseHealth();
-        return {
-          isHealthy: health.isHealthy,
-          message: health.isHealthy ? 'Database connection is healthy' : 'Database connection issues detected'
-        };
-      } else {
-        return {
-          isHealthy: true,
-          message: 'Using mock data (browser environment)'
-        };
-      }
-    } catch (error) {
-      return {
-        isHealthy: false,
-        message: `Health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      console.error(`Update error for table ${table}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
 
-  // Get table reference for Drizzle operations
-  private getTable(tableName: string) {
-    const tableMap: Record<string, any> = {
-      users: schema.users,
-      projects: schema.projects,
-      services: schema.services,
-      contactSubmissions: schema.contactSubmissions,
-      testimonials: schema.testimonials,
-      activityLogs: schema.activityLogs,
-      sessions: schema.sessions,
-      errorLogs: schema.errorLogs,
-      seoConfigurations: schema.seoConfigurations,
-      sitemaps: schema.sitemaps,
-      seoAnalytics: schema.seoAnalytics,
-      keywordRankings: schema.keywordRankings,
-      metaRedirects: schema.metaRedirects,
-      robotsConfig: schema.robotsConfig,
-      schemaTemplates: schema.schemaTemplates
-    };
+  // Generic delete method
+  async delete(table: string, id: string): Promise<DatabaseOperationResult<boolean>> {
+    try {
+      if (this.isServer && this.db) {
+        // Server-side database delete
+        const tableMap: { [key: string]: any } = {
+          users,
+          projects,
+          services,
+          contactSubmissions,
+          testimonials,
+          seoConfigurations
+        };
 
-    return tableMap[tableName];
+        const targetTable = tableMap[table];
+        if (!targetTable) {
+          throw new Error(`Table ${table} not found`);
+        }
+
+        await this.db.delete(targetTable).where(eq(targetTable.id, id));
+        return { success: true, data: true };
+      } else {
+        // Browser-side mock data
+        const items = this.mockData[table] || [];
+        const index = items.findIndex((item: any) => item.id === id);
+
+        if (index === -1) {
+          throw new Error(`Item with id ${id} not found`);
+        }
+
+        this.mockData[table].splice(index, 1);
+        return { success: true, data: true };
+      }
+    } catch (error) {
+      console.error(`Delete error for table ${table}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  // Authentication methods
+  async authenticate(email: string, password: string): Promise<DatabaseOperationResult<any>> {
+    try {
+      if (this.isServer && this.db) {
+        // Server-side authentication with actual database
+        const user = await this.db.query.users.findFirst({
+          where: and(eq(users.email, email), eq(users.isActive, true))
+        });
+
+        if (!user) {
+          return { success: false, error: 'User not found' };
+        }
+
+        // In a real implementation, you would verify the password hash here
+        // For now, return the user (password verification would be handled by auth service)
+        return { success: true, data: user };
+      } else {
+        // Browser-side mock authentication
+        const user = this.mockData.users.find((u: any) => 
+          u.email === email && u.isActive
+        );
+
+        if (!user) {
+          return { success: false, error: 'User not found' };
+        }
+
+        return { success: true, data: user };
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Authentication failed'
+      };
+    }
+  }
+
+  // Dashboard statistics
+  async getDashboardStats(): Promise<DatabaseOperationResult<any>> {
+    try {
+      if (this.isServer && this.db) {
+        // Server-side: Get real statistics
+        const [projectsResult, servicesResult, usersResult] = await Promise.all([
+          this.query('projects'),
+          this.query('services'),
+          this.query('users')
+        ]);
+
+        const stats = {
+          totalProjects: projectsResult.data?.length || 0,
+          activeProjects: projectsResult.data?.filter((p: any) => p.status === 'in_progress').length || 0,
+          totalServices: servicesResult.data?.length || 0,
+          totalUsers: usersResult.data?.length || 0,
+          recentProjects: projectsResult.data?.slice(0, 5) || [],
+          projectsByStatus: {
+            planning: projectsResult.data?.filter((p: any) => p.status === 'planning').length || 0,
+            in_progress: projectsResult.data?.filter((p: any) => p.status === 'in_progress').length || 0,
+            completed: projectsResult.data?.filter((p: any) => p.status === 'completed').length || 0,
+            on_hold: projectsResult.data?.filter((p: any) => p.status === 'on_hold').length || 0
+          }
+        };
+
+        return { success: true, data: stats };
+      } else {
+        // Browser-side: Return mock statistics
+        const stats = {
+          totalProjects: this.mockData.projects.length,
+          activeProjects: this.mockData.projects.filter((p: any) => p.status === 'in_progress').length,
+          totalServices: this.mockData.services.length,
+          totalUsers: this.mockData.users.length,
+          recentProjects: this.mockData.projects.slice(0, 5),
+          projectsByStatus: {
+            planning: this.mockData.projects.filter((p: any) => p.status === 'planning').length,
+            in_progress: this.mockData.projects.filter((p: any) => p.status === 'in_progress').length,
+            completed: this.mockData.projects.filter((p: any) => p.status === 'completed').length,
+            on_hold: this.mockData.projects.filter((p: any) => p.status === 'on_hold').length
+          }
+        };
+
+        return { success: true, data: stats };
+      }
+    } catch (error) {
+      console.error('Dashboard stats error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to get dashboard stats'
+      };
+    }
+  }
+
+  // Health check
+  async healthCheck(): Promise<DatabaseOperationResult<boolean>> {
+    try {
+      if (this.isServer && this.db) {
+        // Server-side: Check actual database connection
+        const { checkDatabaseConnection } = require('../database/connection');
+        const isHealthy = await checkDatabaseConnection();
+        return { success: isHealthy, data: isHealthy };
+      } else {
+        // Browser-side: Always healthy for mock data
+        return { success: true, data: true };
+      }
+    } catch (error) {
+      console.error('Health check error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Health check failed'
+      };
+    }
   }
 }
 
-// Export singleton instance and class
-export const dbClient = DatabaseClient.getInstance();
-export { DatabaseClient as default };
+// Export singleton instance
+export const dbClient = new DatabaseClient();
+export default dbClient;
