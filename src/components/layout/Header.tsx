@@ -2,7 +2,32 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Phone, Mail, MapPin, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { APP_CONFIG, PAGES_CONFIG } from '../../../config';
+// Configuration constants
+const APP_CONFIG = {
+  name: 'AKIBEKS Engineering Solutions',
+  url: 'https://akibeks.co.ke',
+  contact: {
+    email: 'info@akibeks.co.ke',
+    phone: '+254 700 000 000',
+    address: 'Nairobi, Kenya',
+    workingHours: 'Mon-Fri 8:00 AM - 6:00 PM EAT'
+  }
+};
+
+const PAGES_CONFIG = {
+  navigation: [
+    { name: 'Home', path: '/', exact: true },
+    { name: 'About', path: '/about' },
+    { name: 'Services', path: '/services' },
+    { name: 'Projects', path: '/projects' },
+    { name: 'Innovation', path: '/innovation' },
+    { name: 'Case Studies', path: '/case-studies' },
+    { name: 'Sustainability', path: '/sustainability' },
+    { name: 'Gallery', path: '/gallery' },
+    { name: 'Blog', path: '/blog' },
+    { name: 'Contact', path: '/contact' }
+  ]
+};
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

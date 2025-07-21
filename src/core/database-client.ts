@@ -1,51 +1,59 @@
-import { eq, and, or, gte, lte, desc, asc, count, like, ilike } from 'drizzle-orm';
-import { DATABASE_CONFIG } from '../../config.js';
-import { 
-  users, 
-  projects, 
-  services, 
-  contactSubmissions, 
-  testimonials,
-  seoConfigurations 
-} from '../database/schema';
+// Simple Database Client that works in both server and browser environments
+// This avoids importing server-side modules in the browser build
 
 // Type definitions for common database operations
-export interface QueryFilters {
-  where?: any;
-  orderBy?: any;
+export interface QueryOptions {
+  filters?: FilterOption[];
+  orderBy?: string;
+  orderDirection?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
-  select?: any;
 }
 
-export interface DatabaseOperationResult<T = any> {
+export interface FilterOption {
+  column: string;
+  operator: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in';
+  value: any;
+}
+
+export interface DatabaseResult<T = any> {
   success: boolean;
   data?: T;
-  error?: string;
+  error?: string | null;
   count?: number;
 }
 
-// Unified Database Client that works in both server and browser environments
+// Simple Database Client that works in both server and browser environments
 export class DatabaseClient {
+  private db: any = null;
   private isServer: boolean;
-  private db: any;
   private mockData: any;
+  private initialized: boolean = false;
 
   constructor() {
     this.isServer = typeof window === 'undefined';
+    this.initializeMockData();
     
     if (this.isServer) {
-      // Server-side: Use actual PostgreSQL connection
-      try {
-        const { db } = require('../database/connection');
-        this.db = db;
-      } catch (error) {
-        console.warn('Database connection not available:', error);
-        this.db = null;
+      // Defer server-side initialization to avoid import issues
+      this.initializeServerConnection();
+    }
+  }
+
+  private async initializeServerConnection() {
+    if (this.initialized) return;
+    
+    try {
+      // Only import server modules when actually on server
+      if (this.isServer) {
+        const connectionModule = await import('../database/connection.js');
+        this.db = connectionModule.db;
+        this.initialized = true;
+        console.log('✅ Database client initialized with PostgreSQL connection');
       }
-    } else {
-      // Browser-side: Use mock data
-      this.initializeMockData();
+    } catch (error) {
+      console.warn('Failed to initialize database connection, using mock data:', error);
+      this.initialized = true; // Mark as initialized even if failed
     }
   }
 
@@ -72,25 +80,10 @@ export class DatabaseClient {
           priority: 'high',
           startDate: new Date('2024-01-15'),
           estimatedEndDate: new Date('2024-12-31'),
-          budget: 15000000, // KES
+          budget: 15000000,
           clientId: '1',
           assignedToId: '1',
           progress: 65,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        {
-          id: '2',
-          title: 'Residential Villa Project',
-          description: 'Luxury villa construction in Karen',
-          status: 'planning',
-          priority: 'medium',
-          startDate: new Date('2024-03-01'),
-          estimatedEndDate: new Date('2025-02-28'),
-          budget: 8500000, // KES
-          clientId: '2',
-          assignedToId: '1',
-          progress: 25,
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -99,24 +92,12 @@ export class DatabaseClient {
         {
           id: '1',
           name: 'Architectural Design',
-          description: 'Complete architectural design services for residential and commercial projects',
+          description: 'Complete architectural design services',
           category: 'design',
-          price: 250000, // KES
+          price: 250000,
           duration: '4-8 weeks',
           isActive: true,
-          features: ['3D Modeling', 'Technical Drawings', 'Site Planning'],
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        {
-          id: '2',
-          name: 'Construction Management',
-          description: 'Full project management from foundation to completion',
-          category: 'construction',
-          price: 500000, // KES
-          duration: '6-18 months',
-          isActive: true,
-          features: ['Project Planning', 'Quality Control', 'Timeline Management'],
+          features: ['3D Modeling', 'Technical Drawings'],
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -125,93 +106,85 @@ export class DatabaseClient {
       testimonials: [
         {
           id: '1',
-          clientName: 'John Kamau',
-          companyName: 'Kamau Enterprises',
+          name: 'John Kamau',
+          company: 'Kamau Enterprises',
           rating: 5,
-          message: 'AKIBEKS Engineering delivered our office complex on time and within budget. Exceptional quality!',
-          projectId: '1',
-          isApproved: true,
+          message: 'AKIBEKS Engineering delivered exceptional quality!',
+          approved: true,
           createdAt: new Date()
         }
       ],
-      seoConfigurations: [
-        {
-          id: '1',
-          pageUrl: '/',
-          title: 'AKIBEKS Engineering Solutions - Leading Construction Company in Kenya',
-          description: 'Premier engineering and construction services in Kenya. Architectural design, project management, and sustainable building solutions.',
-          keywords: ['construction Kenya', 'engineering services', 'architectural design', 'project management'],
-          ogTitle: 'AKIBEKS Engineering Solutions',
-          ogDescription: 'Leading construction and engineering company in Kenya',
-          ogImage: '/images/akibeks-logo.jpg',
-          canonicalUrl: 'https://akibeks.co.ke/',
-          robotsDirective: 'index,follow',
-          structuredData: {},
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ]
+      seoConfigurations: []
     };
+    console.log('📝 Database client initialized with mock data');
   }
 
-  // Generic query method
-  async query<T>(
-    table: string, 
-    filters?: QueryFilters
-  ): Promise<DatabaseOperationResult<T[]>> {
+  private async ensureInitialized() {
+    if (this.isServer && !this.initialized) {
+      await this.initializeServerConnection();
+    }
+  }
+
+  // Generic select method
+  async select(tableName: string, options?: QueryOptions): Promise<DatabaseResult<any[]>> {
     try {
+      await this.ensureInitialized();
+      
       if (this.isServer && this.db) {
-        // Server-side database query
-        const tableMap: { [key: string]: any } = {
-          users,
-          projects,
-          services,
-          contactSubmissions,
-          testimonials,
-          seoConfigurations
+        // Server-side database query - import schema only when needed
+        const schemaModule = await import('../database/schema/index.js');
+        const { eq, desc, asc } = await import('drizzle-orm');
+        
+        const tableMap: Record<string, any> = {
+          users: schemaModule.users,
+          projects: schemaModule.projects,
+          services: schemaModule.services,
+          contactSubmissions: schemaModule.contactSubmissions,
+          testimonials: schemaModule.testimonials,
+          seoConfigurations: schemaModule.seoConfigurations
         };
 
-        const targetTable = tableMap[table];
+        const targetTable = tableMap[tableName];
         if (!targetTable) {
-          throw new Error(`Table ${table} not found`);
+          return { success: false, error: `Table ${tableName} not found` };
         }
 
         let query = this.db.select().from(targetTable);
 
-        // Apply filters
-        if (filters?.where) {
-          query = query.where(filters.where);
+        // Apply filters, ordering, and pagination
+        if (options?.filters) {
+          // Build where conditions - simplified for now
+          // In production, you'd want more robust filter handling
         }
 
-        if (filters?.orderBy) {
-          query = query.orderBy(filters.orderBy);
+        if (options?.orderBy && targetTable[options.orderBy]) {
+          const orderFn = options.orderDirection === 'desc' ? desc : asc;
+          query = query.orderBy(orderFn(targetTable[options.orderBy]));
         }
 
-        if (filters?.limit) {
-          query = query.limit(filters.limit);
+        if (options?.limit) {
+          query = query.limit(options.limit);
         }
 
-        if (filters?.offset) {
-          query = query.offset(filters.offset);
+        if (options?.offset) {
+          query = query.offset(options.offset);
         }
 
         const result = await query;
         return { success: true, data: result };
       } else {
         // Browser-side mock data
-        const data = this.mockData[table] || [];
+        const data = this.mockData[tableName] || [];
         let filteredData = [...data];
 
-        // Apply basic filtering for mock data
-        if (filters?.limit) {
-          filteredData = filteredData.slice(0, filters.limit);
+        if (options?.limit) {
+          filteredData = filteredData.slice(options.offset || 0, (options.offset || 0) + options.limit);
         }
 
         return { success: true, data: filteredData };
       }
     } catch (error) {
-      console.error(`Query error for table ${table}:`, error);
+      console.error(`Select error for table ${tableName}:`, error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -220,26 +193,81 @@ export class DatabaseClient {
     }
   }
 
-  // Generic insert method
-  async insert<T>(
-    table: string, 
-    data: Partial<T>
-  ): Promise<DatabaseOperationResult<T>> {
+  // Find one record
+  async findOne(tableName: string, filters: Record<string, any>): Promise<DatabaseResult<any>> {
     try {
+      await this.ensureInitialized();
+      
       if (this.isServer && this.db) {
-        // Server-side database insert
-        const tableMap: { [key: string]: any } = {
-          users,
-          projects,
-          services,
-          contactSubmissions,
-          testimonials,
-          seoConfigurations
+        const schemaModule = await import('../database/schema/index.js');
+        const { eq } = await import('drizzle-orm');
+        
+        const tableMap: Record<string, any> = {
+          users: schemaModule.users,
+          projects: schemaModule.projects,
+          services: schemaModule.services,
+          contactSubmissions: schemaModule.contactSubmissions,
+          testimonials: schemaModule.testimonials,
+          seoConfigurations: schemaModule.seoConfigurations
         };
 
-        const targetTable = tableMap[table];
+        const targetTable = tableMap[tableName];
         if (!targetTable) {
-          throw new Error(`Table ${table} not found`);
+          return { success: false, error: `Table ${tableName} not found` };
+        }
+
+        // Build where condition for first filter (simplified)
+        const firstFilter = Object.entries(filters)[0];
+        if (!firstFilter) {
+          return { success: false, error: 'No filters provided' };
+        }
+
+        const [column, value] = firstFilter;
+        if (!targetTable[column]) {
+          return { success: false, error: `Column ${column} not found` };
+        }
+
+        const result = await this.db.select().from(targetTable).where(eq(targetTable[column], value)).limit(1);
+        
+        return { success: true, data: result[0] || null };
+      } else {
+        // Browser-side mock data
+        const data = this.mockData[tableName] || [];
+        const result = data.find((item: any) => {
+          return Object.entries(filters).every(([key, value]) => item[key] === value);
+        });
+
+        return { success: true, data: result || null };
+      }
+    } catch (error) {
+      console.error(`FindOne error for table ${tableName}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  // Insert record
+  async insert(tableName: string, data: any): Promise<DatabaseResult<any>> {
+    try {
+      await this.ensureInitialized();
+      
+      if (this.isServer && this.db) {
+        const schemaModule = await import('../database/schema/index.js');
+        
+        const tableMap: Record<string, any> = {
+          users: schemaModule.users,
+          projects: schemaModule.projects,
+          services: schemaModule.services,
+          contactSubmissions: schemaModule.contactSubmissions,
+          testimonials: schemaModule.testimonials,
+          seoConfigurations: schemaModule.seoConfigurations
+        };
+
+        const targetTable = tableMap[tableName];
+        if (!targetTable) {
+          return { success: false, error: `Table ${tableName} not found` };
         }
 
         const result = await this.db.insert(targetTable).values(data).returning();
@@ -253,15 +281,15 @@ export class DatabaseClient {
           updatedAt: new Date()
         };
 
-        if (!this.mockData[table]) {
-          this.mockData[table] = [];
+        if (!this.mockData[tableName]) {
+          this.mockData[tableName] = [];
         }
 
-        this.mockData[table].push(newItem);
-        return { success: true, data: newItem as T };
+        this.mockData[tableName].push(newItem);
+        return { success: true, data: newItem };
       }
     } catch (error) {
-      console.error(`Insert error for table ${table}:`, error);
+      console.error(`Insert error for table ${tableName}:`, error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -269,27 +297,27 @@ export class DatabaseClient {
     }
   }
 
-  // Generic update method
-  async update<T>(
-    table: string, 
-    id: string, 
-    data: Partial<T>
-  ): Promise<DatabaseOperationResult<T>> {
+  // Update record
+  async update(tableName: string, id: string, data: any): Promise<DatabaseResult<any>> {
     try {
+      await this.ensureInitialized();
+      
       if (this.isServer && this.db) {
-        // Server-side database update
-        const tableMap: { [key: string]: any } = {
-          users,
-          projects,
-          services,
-          contactSubmissions,
-          testimonials,
-          seoConfigurations
+        const schemaModule = await import('../database/schema/index.js');
+        const { eq } = await import('drizzle-orm');
+        
+        const tableMap: Record<string, any> = {
+          users: schemaModule.users,
+          projects: schemaModule.projects,
+          services: schemaModule.services,
+          contactSubmissions: schemaModule.contactSubmissions,
+          testimonials: schemaModule.testimonials,
+          seoConfigurations: schemaModule.seoConfigurations
         };
 
-        const targetTable = tableMap[table];
+        const targetTable = tableMap[tableName];
         if (!targetTable) {
-          throw new Error(`Table ${table} not found`);
+          return { success: false, error: `Table ${tableName} not found` };
         }
 
         const result = await this.db
@@ -301,11 +329,11 @@ export class DatabaseClient {
         return { success: true, data: result[0] };
       } else {
         // Browser-side mock data
-        const items = this.mockData[table] || [];
+        const items = this.mockData[tableName] || [];
         const index = items.findIndex((item: any) => item.id === id);
 
         if (index === -1) {
-          throw new Error(`Item with id ${id} not found`);
+          return { success: false, error: `Item with id ${id} not found` };
         }
 
         const updatedItem = {
@@ -314,11 +342,11 @@ export class DatabaseClient {
           updatedAt: new Date()
         };
 
-        this.mockData[table][index] = updatedItem;
-        return { success: true, data: updatedItem as T };
+        this.mockData[tableName][index] = updatedItem;
+        return { success: true, data: updatedItem };
       }
     } catch (error) {
-      console.error(`Update error for table ${table}:`, error);
+      console.error(`Update error for table ${tableName}:`, error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -326,41 +354,45 @@ export class DatabaseClient {
     }
   }
 
-  // Generic delete method
-  async delete(table: string, id: string): Promise<DatabaseOperationResult<boolean>> {
+  // Delete record
+  async delete(tableName: string, id: string): Promise<DatabaseResult<boolean>> {
     try {
+      await this.ensureInitialized();
+      
       if (this.isServer && this.db) {
-        // Server-side database delete
-        const tableMap: { [key: string]: any } = {
-          users,
-          projects,
-          services,
-          contactSubmissions,
-          testimonials,
-          seoConfigurations
+        const schemaModule = await import('../database/schema/index.js');
+        const { eq } = await import('drizzle-orm');
+        
+        const tableMap: Record<string, any> = {
+          users: schemaModule.users,
+          projects: schemaModule.projects,
+          services: schemaModule.services,
+          contactSubmissions: schemaModule.contactSubmissions,
+          testimonials: schemaModule.testimonials,
+          seoConfigurations: schemaModule.seoConfigurations
         };
 
-        const targetTable = tableMap[table];
+        const targetTable = tableMap[tableName];
         if (!targetTable) {
-          throw new Error(`Table ${table} not found`);
+          return { success: false, error: `Table ${tableName} not found` };
         }
 
         await this.db.delete(targetTable).where(eq(targetTable.id, id));
         return { success: true, data: true };
       } else {
         // Browser-side mock data
-        const items = this.mockData[table] || [];
+        const items = this.mockData[tableName] || [];
         const index = items.findIndex((item: any) => item.id === id);
 
         if (index === -1) {
-          throw new Error(`Item with id ${id} not found`);
+          return { success: false, error: `Item with id ${id} not found` };
         }
 
-        this.mockData[table].splice(index, 1);
+        this.mockData[tableName].splice(index, 1);
         return { success: true, data: true };
       }
     } catch (error) {
-      console.error(`Delete error for table ${table}:`, error);
+      console.error(`Delete error for table ${tableName}:`, error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -368,106 +400,16 @@ export class DatabaseClient {
     }
   }
 
-  // Authentication methods
-  async authenticate(email: string, password: string): Promise<DatabaseOperationResult<any>> {
-    try {
-      if (this.isServer && this.db) {
-        // Server-side authentication with actual database
-        const user = await this.db.query.users.findFirst({
-          where: and(eq(users.email, email), eq(users.isActive, true))
-        });
-
-        if (!user) {
-          return { success: false, error: 'User not found' };
-        }
-
-        // In a real implementation, you would verify the password hash here
-        // For now, return the user (password verification would be handled by auth service)
-        return { success: true, data: user };
-      } else {
-        // Browser-side mock authentication
-        const user = this.mockData.users.find((u: any) => 
-          u.email === email && u.isActive
-        );
-
-        if (!user) {
-          return { success: false, error: 'User not found' };
-        }
-
-        return { success: true, data: user };
-      }
-    } catch (error) {
-      console.error('Authentication error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Authentication failed'
-      };
-    }
-  }
-
-  // Dashboard statistics
-  async getDashboardStats(): Promise<DatabaseOperationResult<any>> {
-    try {
-      if (this.isServer && this.db) {
-        // Server-side: Get real statistics
-        const [projectsResult, servicesResult, usersResult] = await Promise.all([
-          this.query('projects'),
-          this.query('services'),
-          this.query('users')
-        ]);
-
-        const stats = {
-          totalProjects: projectsResult.data?.length || 0,
-          activeProjects: projectsResult.data?.filter((p: any) => p.status === 'in_progress').length || 0,
-          totalServices: servicesResult.data?.length || 0,
-          totalUsers: usersResult.data?.length || 0,
-          recentProjects: projectsResult.data?.slice(0, 5) || [],
-          projectsByStatus: {
-            planning: projectsResult.data?.filter((p: any) => p.status === 'planning').length || 0,
-            in_progress: projectsResult.data?.filter((p: any) => p.status === 'in_progress').length || 0,
-            completed: projectsResult.data?.filter((p: any) => p.status === 'completed').length || 0,
-            on_hold: projectsResult.data?.filter((p: any) => p.status === 'on_hold').length || 0
-          }
-        };
-
-        return { success: true, data: stats };
-      } else {
-        // Browser-side: Return mock statistics
-        const stats = {
-          totalProjects: this.mockData.projects.length,
-          activeProjects: this.mockData.projects.filter((p: any) => p.status === 'in_progress').length,
-          totalServices: this.mockData.services.length,
-          totalUsers: this.mockData.users.length,
-          recentProjects: this.mockData.projects.slice(0, 5),
-          projectsByStatus: {
-            planning: this.mockData.projects.filter((p: any) => p.status === 'planning').length,
-            in_progress: this.mockData.projects.filter((p: any) => p.status === 'in_progress').length,
-            completed: this.mockData.projects.filter((p: any) => p.status === 'completed').length,
-            on_hold: this.mockData.projects.filter((p: any) => p.status === 'on_hold').length
-          }
-        };
-
-        return { success: true, data: stats };
-      }
-    } catch (error) {
-      console.error('Dashboard stats error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to get dashboard stats'
-      };
-    }
-  }
-
   // Health check
-  async healthCheck(): Promise<DatabaseOperationResult<boolean>> {
+  async healthCheck(): Promise<DatabaseResult<boolean>> {
     try {
+      await this.ensureInitialized();
+      
       if (this.isServer && this.db) {
-        // Server-side: Check actual database connection
-        const { checkDatabaseConnection } = require('../database/connection');
-        const isHealthy = await checkDatabaseConnection();
+        const connectionModule = await import('../database/connection.js');
+        const isHealthy = await connectionModule.checkDatabaseConnection();
         return { success: isHealthy, data: isHealthy };
       } else {
-        // Browser-side: Always healthy for mock data
         return { success: true, data: true };
       }
     } catch (error) {
@@ -482,4 +424,15 @@ export class DatabaseClient {
 
 // Export singleton instance
 export const dbClient = new DatabaseClient();
+
+// Export table names for type safety
+export const Tables = {
+  USERS: 'users',
+  PROJECTS: 'projects',
+  SERVICES: 'services',
+  CONTACT_SUBMISSIONS: 'contactSubmissions',
+  TESTIMONIALS: 'testimonials',
+  SEO_CONFIGURATIONS: 'seoConfigurations'
+} as const;
+
 export default dbClient;

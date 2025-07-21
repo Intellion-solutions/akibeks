@@ -1,5 +1,5 @@
-import { query } from './database-client';
-import DatabaseClient from './database-client';
+import { clientDb as db } from './client-db';
+import { DatabaseResult } from './client-db';
 import { AutomationService } from './automation-service';
 
 export interface AdvancedTrigger {
@@ -182,7 +182,7 @@ export interface SuccessMetric {
 export class AdvancedAutomationService {
   // Project Automation Management
   static async createProjectAutomation(automation: Omit<ProjectAutomation, 'id' | 'created_at' | 'execution_count' | 'success_rate'>, userId: string): Promise<ProjectAutomation> {
-    const result = await query(
+    const result = await db.query(
       `INSERT INTO project_automations (name, description, project_id, triggers, actions, is_active, created_by, created_at, execution_count, success_rate, tags, category) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), 0, 100, $8, $9) RETURNING *`,
       [
@@ -198,7 +198,7 @@ export class AdvancedAutomationService {
       ]
     );
 
-    await DatabaseClient.logActivity(userId, 'CREATE', 'project_automation', result.rows[0].id, automation);
+    await db.logActivity(userId, 'CREATE', 'project_automation', result.rows[0].id, automation);
     return this.parseAutomation(result.rows[0]);
   }
 
@@ -224,7 +224,7 @@ export class AdvancedAutomationService {
       }
 
       // Update execution stats
-      await query(
+      await db.query(
         `UPDATE project_automations SET 
          execution_count = execution_count + 1,
          last_executed = NOW()
@@ -232,13 +232,13 @@ export class AdvancedAutomationService {
         [automationId]
       );
 
-      await DatabaseClient.logActivity(userId, 'EXECUTE', 'project_automation', automationId, context);
+      await db.logActivity(userId, 'EXECUTE', 'project_automation', automationId, context);
       return true;
     } catch (error) {
       console.error('Automation execution failed:', error);
       
       // Update failure rate
-      await query(
+      await db.query(
         `UPDATE project_automations SET 
          execution_count = execution_count + 1,
          success_rate = (success_rate * (execution_count - 1) + 0) / execution_count
@@ -338,7 +338,7 @@ export class AdvancedAutomationService {
   static async createTeamCollaboration(collaboration: Omit<TeamCollaboration, 'id' | 'created_at' | 'analytics'>, userId: string): Promise<TeamCollaboration> {
     const shareId = `share-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
-    const result = await query(
+    const result = await db.query(
       `INSERT INTO team_collaborations (id, project_id, type, participants, shared_resources, settings, analytics, created_by, created_at, expires_at) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9) RETURNING *`,
       [
@@ -361,7 +361,7 @@ export class AdvancedAutomationService {
       }
     }
 
-    await DatabaseClient.logActivity(userId, 'CREATE', 'team_collaboration', shareId, collaboration);
+    await db.logActivity(userId, 'CREATE', 'team_collaboration', shareId, collaboration);
     return this.parseCollaboration(result.rows[0]);
   }
 
@@ -394,7 +394,7 @@ export class AdvancedAutomationService {
 
   // Smart Workflows
   static async createSmartWorkflow(workflow: Omit<SmartWorkflow, 'id' | 'usage_count' | 'rating'>, userId: string): Promise<SmartWorkflow> {
-    const result = await query(
+    const result = await db.query(
       `INSERT INTO smart_workflows (name, description, template_category, phases, dependencies, variables, estimated_duration, team_roles_required, client_involvement_points, approval_gates, risk_factors, success_metrics, created_by, usage_count, rating) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0, 0) RETURNING *`,
       [
@@ -414,7 +414,7 @@ export class AdvancedAutomationService {
       ]
     );
 
-    await DatabaseClient.logActivity(userId, 'CREATE', 'smart_workflow', result.rows[0].id, workflow);
+    await db.logActivity(userId, 'CREATE', 'smart_workflow', result.rows[0].id, workflow);
     return this.parseWorkflow(result.rows[0]);
   }
 
@@ -426,7 +426,7 @@ export class AdvancedAutomationService {
 
     // Create project phases based on workflow
     for (const phase of workflow.phases) {
-      const phaseResult = await query(
+      const phaseResult = await db.query(
         `INSERT INTO project_phases (project_id, name, description, estimated_duration, order_index, status, created_by, created_at) 
          VALUES ($1, $2, $3, $4, $5, 'pending', $6, NOW()) RETURNING *`,
         [
@@ -443,7 +443,7 @@ export class AdvancedAutomationService {
 
       // Create tasks for each phase
       for (const task of phase.tasks) {
-        await query(
+        await db.query(
           `INSERT INTO tasks (project_id, phase_id, title, description, type, estimated_hours, priority, status, checklist_items, dependencies, created_by, created_at) 
            VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10, NOW())`,
           [
@@ -471,12 +471,12 @@ export class AdvancedAutomationService {
     }
 
     // Update workflow usage count
-    await query(
+    await db.query(
       `UPDATE smart_workflows SET usage_count = usage_count + 1 WHERE id = $1`,
       [workflowId]
     );
 
-    await DatabaseClient.logActivity(userId, 'APPLY_WORKFLOW', 'project', projectId, {
+    await db.logActivity(userId, 'APPLY_WORKFLOW', 'project', projectId, {
       workflow_id: workflowId,
       variables
     });
@@ -485,7 +485,7 @@ export class AdvancedAutomationService {
   // AI-Powered Suggestions
   static async getAutomationSuggestions(projectId: string, userId: string): Promise<any[]> {
     // Analyze project patterns and suggest automations
-    const projectData = await query(
+    const projectData = await db.query(
       `SELECT p.*, 
        COUNT(t.id) as task_count,
        COUNT(CASE WHEN t.status = 'completed' THEN 1 END) as completed_tasks,
@@ -650,12 +650,12 @@ export class AdvancedAutomationService {
   }
 
   private static async getProjectAutomation(id: string): Promise<ProjectAutomation | null> {
-    const result = await query('SELECT * FROM project_automations WHERE id = $1', [id]);
+    const result = await db.query('SELECT * FROM project_automations WHERE id = $1', [id]);
     return result.rows.length > 0 ? this.parseAutomation(result.rows[0]) : null;
   }
 
   private static async getSmartWorkflow(id: string): Promise<SmartWorkflow | null> {
-    const result = await query('SELECT * FROM smart_workflows WHERE id = $1', [id]);
+    const result = await db.query('SELECT * FROM smart_workflows WHERE id = $1', [id]);
     return result.rows.length > 0 ? this.parseWorkflow(result.rows[0]) : null;
   }
 }

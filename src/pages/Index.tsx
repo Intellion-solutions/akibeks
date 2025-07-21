@@ -38,7 +38,7 @@ import { Link } from 'react-router-dom';
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import SEOWrapper from "@/components/SEOWrapper";
-import { dbClient } from "@/core/database-client";
+import { clientDb as dbClient } from "@/lib/client-db";
 import { formatDisplayAmount } from "@/lib/currency-utils";
 
 interface Project {
