@@ -411,6 +411,129 @@ const AdminDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Admin Personnel Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Admin Personnel
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">5</div>
+                  <p className="text-sm text-muted-foreground">Active Admins</p>
+                </div>
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">12</div>
+                  <p className="text-sm text-muted-foreground">Login Sessions</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => navigate('/admin/personnel')}
+                  className="flex-1"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Manage Personnel
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/admin/personnel?tab=security')}
+                  className="flex-1"
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Security Events
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Calendar Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Calendar & Events
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">8</div>
+                  <p className="text-sm text-muted-foreground">Upcoming Events</p>
+                </div>
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-orange-600">3</div>
+                  <p className="text-sm text-muted-foreground">Overdue Tasks</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => navigate('/admin/calendar')}
+                  className="flex-1"
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Open Calendar
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/admin/calendar?view=agenda')}
+                  className="flex-1"
+                >
+                  <Clock className="w-4 h-4 mr-2" />
+                  View Agenda
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* File Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="w-5 h-5" />
+              File Storage
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">2.5 GB</div>
+                  <p className="text-sm text-muted-foreground">Storage Used</p>
+                </div>
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-purple-600">127</div>
+                  <p className="text-sm text-muted-foreground">Total Files</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => navigate('/admin/files')}
+                  className="flex-1"
+                >
+                  <Wrench className="w-4 h-4 mr-2" />
+                  File Manager
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/admin/files?category=project')}
+                  className="flex-1"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Project Files
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Recent Activity */}
         <Card>
           <CardHeader>
