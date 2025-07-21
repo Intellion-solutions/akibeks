@@ -131,17 +131,25 @@ const Footer = () => {
               </Link>
             </div>
 
-            {/* Certifications */}
+            {/* Certifications & Admin Access */}
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300">
               <span className="bg-gray-800 px-2 py-1 rounded text-xs">NCA Registered</span>
               <span className="bg-gray-800 px-2 py-1 rounded text-xs">ISO Certified</span>
-              <Link 
-                to="/admin-access" 
-                className="flex items-center text-gray-500 hover:text-gray-400 transition-colors text-xs"
-              >
-                <Shield className="w-3 h-3 mr-1" />
-                Admin
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link 
+                  to="/admin" 
+                  className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs transition-colors font-medium"
+                >
+                  <Shield className="w-3 h-3 mr-1" />
+                  Admin Dashboard
+                </Link>
+                <Link 
+                  to="/client-portal" 
+                  className="flex items-center bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-xs transition-colors font-medium"
+                >
+                  Client Portal
+                </Link>
+              </div>
             </div>
           </div>
 
