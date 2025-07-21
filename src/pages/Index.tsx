@@ -38,7 +38,7 @@ import { Link } from 'react-router-dom';
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import SEOWrapper from "@/components/SEOWrapper";
-import { dbClient, Tables } from "@/core/database-client";
+import { dbClient } from "@/core/database-client";
 import { formatDisplayAmount } from "@/lib/currency-utils";
 
 interface Project {
@@ -101,57 +101,36 @@ const Index = () => {
   const fetchData = async () => {
     try {
       // Fetch featured projects
-      const projectsResult = await dbClient.select(
-        Tables.projects,
-        {
-          filters: [{ column: 'featured', operator: 'eq', value: true }],
-          limit: 6,
-          orderBy: 'createdAt',
-          orderDirection: 'desc'
+      const projectsResult = await dbClient.query('projects', {
+        limit: 6
+      });
+
+              if (projectsResult.success) {
+          setFeaturedProjects(projectsResult.data || []);
+        } else {
+          console.error('Error fetching projects:', projectsResult.error);
         }
-      );
 
-      if (projectsResult.error) {
-        console.error('Error fetching projects:', projectsResult.error);
-      } else {
-        setFeaturedProjects(projectsResult.data || []);
-      }
+              // Fetch services
+        const servicesResult = await dbClient.query('services', {
+          limit: 6
+        });
 
-      // Fetch services
-      const servicesResult = await dbClient.select(
-        Tables.services,
-        {
-          filters: [{ column: 'active', operator: 'eq', value: true }],
-          limit: 6,
-          orderBy: 'position',
-          orderDirection: 'asc'
-        }
-      );
-
-      if (servicesResult.error) {
-        console.error('Error fetching services:', servicesResult.error);
-      } else {
+      if (servicesResult.success) {
         setServices(servicesResult.data || []);
+      } else {
+        console.error('Error fetching services:', servicesResult.error);
       }
 
       // Fetch testimonials
-      const testimonialsResult = await dbClient.select(
-        Tables.testimonials,
-        {
-          filters: [
-            { column: 'approved', operator: 'eq', value: true },
-            { column: 'featured', operator: 'eq', value: true }
-          ],
-          limit: 6,
-          orderBy: 'rating',
-          orderDirection: 'desc'
-        }
-      );
+      const testimonialsResult = await dbClient.query('testimonials', {
+        limit: 6
+      });
 
-      if (testimonialsResult.error) {
-        console.error('Error fetching testimonials:', testimonialsResult.error);
-      } else {
+      if (testimonialsResult.success) {
         setTestimonials(testimonialsResult.data || []);
+      } else {
+        console.error('Error fetching testimonials:', testimonialsResult.error);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -163,7 +142,7 @@ const Index = () => {
     setLoading(true);
 
     try {
-      const result = await dbClient.insert(Tables.contactSubmissions, {
+      const result = await dbClient.insert('contactSubmissions', {
         name: contactForm.name,
         email: contactForm.email,
         phoneNumber: contactForm.phone,
@@ -175,7 +154,7 @@ const Index = () => {
         userAgent: navigator.userAgent
       });
 
-      if (result.error) throw result.error;
+      if (!result.success) throw new Error(result.error);
 
       toast({
         title: "Message Sent Successfully!",
