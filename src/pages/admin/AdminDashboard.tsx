@@ -28,7 +28,7 @@ import { supabase } from "@/lib/db-client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
-import AdminHeader from "@/components/admin/AdminHeader";
+import AdminHeader from "@/components/AdminHeader";
 import PWAInstaller from "@/components/PWAInstaller";
 
 interface DashboardStats {

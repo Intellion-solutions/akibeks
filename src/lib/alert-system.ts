@@ -1,5 +1,5 @@
 import { supabase } from "./db-client";
-import { ErrorHandler } from "./error-handling";
+import { ErrorHandlingService } from "./error-handling";
 import { QueueManager } from "./queue-manager";
 import { SMTPService } from "./smtp-service";
 import { CalendarManager } from "./calendar-manager";
@@ -94,7 +94,7 @@ export class AlertSystem {
   private calendarManager: CalendarManager;
 
   constructor() {
-    this.errorHandler = new ErrorHandler();
+    this.errorHandler = ErrorHandlingService.getInstance();
     this.queueManager = new QueueManager();
     this.smtpService = new SMTPService({
       host: 'smtp.gmail.com',

@@ -1,5 +1,5 @@
 import { supabase } from "./db-client";
-import { ErrorHandler } from "./error-handling";
+import { ErrorHandlingService } from "./error-handling";
 import { QueueManager } from "./queue-manager";
 
 export interface CalendarEvent {
@@ -60,7 +60,7 @@ export class CalendarManager {
   private queueManager: QueueManager;
 
   constructor() {
-    this.errorHandler = new ErrorHandler();
+    this.errorHandler = ErrorHandlingService.getInstance();
     this.queueManager = new QueueManager();
   }
 

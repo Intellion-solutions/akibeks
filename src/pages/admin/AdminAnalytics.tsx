@@ -28,7 +28,7 @@ import {
   CheckCircle,
   Download,
   Filter,
-  Refresh,
+  RefreshCw,
   Eye,
   ArrowUp,
   ArrowDown,
@@ -229,8 +229,8 @@ const AdminAnalytics = () => {
             </Select>
             
             <Button variant="outline" onClick={fetchAnalyticsData} disabled={loading}>
-              <Refresh className="w-4 h-4 mr-2" />
-              Refresh
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
             </Button>
             
             <Button>

@@ -1,5 +1,5 @@
 import { supabase } from "./db-client";
-import { ErrorHandler } from "./error-handling";
+import { ErrorHandlingService } from "./error-handling";
 import { QueueManager } from "./queue-manager";
 
 export interface EmailTemplate {
@@ -96,7 +96,7 @@ export class SMTPService {
   private config: SMTPConfig;
 
   constructor(config: SMTPConfig) {
-    this.errorHandler = new ErrorHandler();
+    this.errorHandler = ErrorHandlingService.getInstance();
     this.queueManager = new QueueManager();
     this.config = config;
   }

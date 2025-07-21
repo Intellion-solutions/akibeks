@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { query } from './database-client';
+import { supabase } from './db-client';
 
 export interface ErrorDetails {
   id: string;
@@ -8,98 +8,81 @@ export interface ErrorDetails {
   severity: 'low' | 'medium' | 'high' | 'critical';
   message: string;
   stack_trace?: string;
-  context: {
-    user_id?: string;
-    session_id?: string;
-    request_id?: string;
-    endpoint?: string;
-    method?: string;
-    ip_address?: string;
-    user_agent?: string;
-    project_id?: string;
-    task_id?: string;
-    additional_data?: any;
-  };
-  resolution_status: 'unresolved' | 'investigating' | 'resolved' | 'ignored';
-  resolution_notes?: string;
+  context?: any;
+  user_id?: string;
+  session_id?: string;
+  request_id?: string;
+  url?: string;
+  user_agent?: string;
+  ip_address?: string;
+  resolution_status: 'open' | 'investigating' | 'resolved' | 'ignored';
   occurred_at: string;
-  resolved_at?: string;
-  count: number;
-  first_occurrence: string;
-  last_occurrence: string;
+  count?: number;
+  first_occurrence?: string;
+  last_occurrence?: string;
 }
 
 export interface ErrorPattern {
   pattern_id: string;
-  error_signature: string;
+  error_codes: string[];
   frequency: number;
-  trend: 'increasing' | 'decreasing' | 'stable';
-  impact_score: number;
-  affected_users: string[];
-  created_at: string;
+  severity_trend: 'increasing' | 'stable' | 'decreasing';
+  suggested_action?: string;
+  identified_at: string;
 }
 
-export class ErrorHandler {
-  private static readonly MAX_STACK_LENGTH = 5000;
-  private static readonly ERROR_RETENTION_DAYS = 90;
-  private static readonly ALERT_THRESHOLDS = {
-    critical: 1,
-    high: 5,
-    medium: 20,
-    low: 100
-  };
+export enum ErrorSeverity {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical'
+}
 
-  static async handleError(error: Error, context: any = {}): Promise<string> {
-    try {
-      const errorId = uuidv4();
-      const errorDetails = await this.processError(error, context, errorId);
-      
-      // Log to database
-      await this.logError(errorDetails);
-      
-      // Check for patterns and alerts
-      await this.analyzeErrorPattern(errorDetails);
-      
-      // Send notifications if needed
-      await this.sendAlertIfNeeded(errorDetails);
-      
-      // Attempt recovery if possible
-      await this.attemptRecovery(errorDetails);
-      
-      return errorId;
-    } catch (loggingError) {
-      // Fallback logging
-      console.error('Error logging failed:', loggingError);
-      console.error('Original error:', error);
-      return 'unknown';
+export enum ErrorCategory {
+  VALIDATION = 'validation',
+  DATABASE = 'database',
+  NETWORK = 'network',
+  AUTH = 'auth',
+  BUSINESS = 'business',
+  SYSTEM = 'system',
+  EXTERNAL = 'external'
+}
+
+export class ErrorHandlingService {
+  private static instance: ErrorHandlingService;
+  private errorQueue: ErrorDetails[] = [];
+  private isProcessing = false;
+
+  static getInstance(): ErrorHandlingService {
+    if (!ErrorHandlingService.instance) {
+      ErrorHandlingService.instance = new ErrorHandlingService();
     }
+    return ErrorHandlingService.instance;
   }
 
-  static async processError(error: Error, context: any, errorId: string): Promise<ErrorDetails> {
-    const errorType = this.categorizeError(error);
-    const severity = this.determineSeverity(error, errorType, context);
-    const errorCode = this.generateErrorCode(error, errorType);
+  async handleError(error: Error | ErrorDetails, context?: any): Promise<void> {
+    let errorDetails: ErrorDetails;
 
+    if (error instanceof Error) {
+      errorDetails = this.createErrorDetails(error, context);
+    } else {
+      errorDetails = error;
+    }
+
+    // Process error immediately
+    await this.processError(errorDetails);
+  }
+
+  private createErrorDetails(error: Error, context?: any): ErrorDetails {
     return {
-      id: errorId,
-      error_code: errorCode,
-      error_type: errorType,
-      severity,
-      message: error.message || 'Unknown error',
-      stack_trace: error.stack?.substring(0, this.MAX_STACK_LENGTH),
-      context: {
-        user_id: context.user_id,
-        session_id: context.session_id,
-        request_id: context.request_id,
-        endpoint: context.endpoint,
-        method: context.method,
-        ip_address: context.ip_address,
-        user_agent: context.user_agent,
-        project_id: context.project_id,
-        task_id: context.task_id,
-        additional_data: context.additional_data
-      },
-      resolution_status: 'unresolved',
+      id: uuidv4(),
+      error_code: error.name || 'UNKNOWN_ERROR',
+      error_type: this.categorizeError(error),
+      severity: this.determineSeverity(error),
+      message: error.message,
+      stack_trace: error.stack,
+      context: context || {},
+      resolution_status: 'open',
       occurred_at: new Date().toISOString(),
       count: 1,
       first_occurrence: new Date().toISOString(),
@@ -107,435 +90,322 @@ export class ErrorHandler {
     };
   }
 
-  static categorizeError(error: Error): ErrorDetails['error_type'] {
-    const message = error.message.toLowerCase();
-    const name = error.name.toLowerCase();
-
-    if (name.includes('validation') || message.includes('validation')) {
-      return 'validation';
-    }
-    if (name.includes('database') || message.includes('database') || message.includes('sql')) {
-      return 'database';
-    }
-    if (name.includes('network') || message.includes('network') || message.includes('timeout')) {
-      return 'network';
-    }
-    if (name.includes('auth') || message.includes('unauthorized') || message.includes('forbidden')) {
-      return 'auth';
-    }
-    if (message.includes('business rule') || message.includes('constraint')) {
-      return 'business';
-    }
-    if (message.includes('external') || message.includes('api')) {
-      return 'external';
-    }
-    
-    return 'system';
-  }
-
-  static determineSeverity(error: Error, errorType: string, context: any): ErrorDetails['severity'] {
-    // Critical errors
-    if (
-      errorType === 'database' && error.message.includes('connection') ||
-      errorType === 'auth' && context.user_id && error.message.includes('security') ||
-      error.message.includes('payment') ||
-      error.message.includes('data corruption')
-    ) {
-      return 'critical';
-    }
-
-    // High severity
-    if (
-      errorType === 'database' ||
-      errorType === 'auth' ||
-      context.project_id && errorType === 'business' ||
-      error.message.includes('failed to save')
-    ) {
-      return 'high';
-    }
-
-    // Medium severity
-    if (
-      errorType === 'network' ||
-      errorType === 'external' ||
-      context.endpoint?.includes('/api/')
-    ) {
-      return 'medium';
-    }
-
-    return 'low';
-  }
-
-  static generateErrorCode(error: Error, errorType: string): string {
-    const timestamp = Date.now().toString(36);
-    const typeCode = errorType.substring(0, 3).toUpperCase();
-    const hash = this.hashString(error.message).substring(0, 4);
-    
-    return `${typeCode}-${hash}-${timestamp}`;
-  }
-
-  static hashString(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(16);
-  }
-
-  static async logError(errorDetails: ErrorDetails): Promise<void> {
+  private async processError(errorDetails: ErrorDetails): Promise<void> {
     try {
-      // Check if similar error exists
-      const existingError = await query(
-        `SELECT * FROM error_logs 
-         WHERE error_code = $1 AND DATE(occurred_at) = CURRENT_DATE 
-         ORDER BY occurred_at DESC LIMIT 1`,
-        [errorDetails.error_code]
-      );
+      // Log error to database
+      await this.logError(errorDetails);
+      
+      // Analyze error patterns
+      await this.analyzeErrorPattern(errorDetails);
+      
+      // Send alerts if necessary
+      await this.sendAlertIfNeeded(errorDetails);
+      
+      // Attempt recovery if possible
+      await this.attemptRecovery(errorDetails);
+    } catch (processingError) {
+      console.error('Error processing error:', processingError);
+      // Add to queue for retry
+      this.errorQueue.push(errorDetails);
+    }
+  }
 
-      if (existingError.rows.length > 0) {
+  private categorizeError(error: Error): ErrorCategory {
+    const message = error.message.toLowerCase();
+    const stack = error.stack?.toLowerCase() || '';
+
+    if (message.includes('validation') || message.includes('invalid')) {
+      return ErrorCategory.VALIDATION;
+    }
+    if (message.includes('database') || message.includes('sql') || message.includes('connection')) {
+      return ErrorCategory.DATABASE;
+    }
+    if (message.includes('network') || message.includes('fetch') || message.includes('timeout')) {
+      return ErrorCategory.NETWORK;
+    }
+    if (message.includes('auth') || message.includes('permission') || message.includes('unauthorized')) {
+      return ErrorCategory.AUTH;
+    }
+    if (stack.includes('business') || message.includes('rule')) {
+      return ErrorCategory.BUSINESS;
+    }
+    if (message.includes('system') || message.includes('memory') || message.includes('disk')) {
+      return ErrorCategory.SYSTEM;
+    }
+    
+    return ErrorCategory.EXTERNAL;
+  }
+
+  private determineSeverity(error: Error): ErrorSeverity {
+    const message = error.message.toLowerCase();
+    
+    if (message.includes('critical') || message.includes('fatal') || message.includes('crashed')) {
+      return ErrorSeverity.CRITICAL;
+    }
+    if (message.includes('error') || message.includes('failed') || message.includes('exception')) {
+      return ErrorSeverity.HIGH;
+    }
+    if (message.includes('warning') || message.includes('deprecated')) {
+      return ErrorSeverity.MEDIUM;
+    }
+    
+    return ErrorSeverity.LOW;
+  }
+
+  async logError(errorDetails: ErrorDetails): Promise<void> {
+    try {
+      // Check if similar error exists today
+      const { data: existingErrors } = await supabase
+        .from('error_logs')
+        .select('*')
+        .eq('error_code', errorDetails.error_code)
+        .gte('occurred_at', new Date().toISOString().split('T')[0])
+        .order('occurred_at', { ascending: false })
+        .limit(1);
+
+      if (existingErrors && existingErrors.length > 0) {
         // Update existing error count
-        await query(
-          `UPDATE error_logs 
-           SET count = count + 1, last_occurrence = $1, context = $2
-           WHERE id = $3`,
-          [errorDetails.occurred_at, JSON.stringify(errorDetails.context), existingError.rows[0].id]
-        );
+        const existingError = existingErrors[0];
+        await supabase
+          .from('error_logs')
+          .update({
+            count: (existingError.count || 1) + 1,
+            last_occurrence: errorDetails.occurred_at,
+            context: errorDetails.context
+          })
+          .eq('id', existingError.id);
       } else {
         // Insert new error
-        await query(
-          `INSERT INTO error_logs (
-            id, error_code, error_type, severity, message, stack_trace, 
-            context, resolution_status, occurred_at, count, first_occurrence, last_occurrence
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-          [
-            errorDetails.id,
-            errorDetails.error_code,
-            errorDetails.error_type,
-            errorDetails.severity,
-            errorDetails.message,
-            errorDetails.stack_trace,
-            JSON.stringify(errorDetails.context),
-            errorDetails.resolution_status,
-            errorDetails.occurred_at,
-            errorDetails.count,
-            errorDetails.first_occurrence,
-            errorDetails.last_occurrence
-          ]
-        );
+        await supabase
+          .from('error_logs')
+          .insert([{
+            id: errorDetails.id,
+            error_code: errorDetails.error_code,
+            error_type: errorDetails.error_type,
+            severity: errorDetails.severity,
+            message: errorDetails.message,
+            stack_trace: errorDetails.stack_trace,
+            context: errorDetails.context,
+            user_id: errorDetails.user_id,
+            session_id: errorDetails.session_id,
+            request_id: errorDetails.request_id,
+            url: errorDetails.url,
+            user_agent: errorDetails.user_agent,
+            ip_address: errorDetails.ip_address,
+            resolution_status: errorDetails.resolution_status,
+            occurred_at: errorDetails.occurred_at,
+            count: 1,
+            first_occurrence: errorDetails.occurred_at,
+            last_occurrence: errorDetails.occurred_at
+          }]);
       }
-    } catch (dbError) {
-      console.error('Failed to log error to database:', dbError);
-      // Fallback to file logging
-      await this.logToFile(errorDetails);
+    } catch (logError) {
+      console.error('Failed to log error to database:', logError);
     }
   }
 
-  static async logToFile(errorDetails: ErrorDetails): Promise<void> {
-    const fs = require('fs').promises;
-    const path = require('path');
-    
-    try {
-      const logsDir = path.join(process.cwd(), 'logs');
-      await fs.mkdir(logsDir, { recursive: true });
-      
-      const logFile = path.join(logsDir, `error-${new Date().toISOString().split('T')[0]}.log`);
-      const logEntry = `${new Date().toISOString()} [${errorDetails.severity.toUpperCase()}] ${errorDetails.error_code}: ${errorDetails.message}\n`;
-      
-      await fs.appendFile(logFile, logEntry);
-    } catch (fileError) {
-      console.error('Failed to log to file:', fileError);
-    }
-  }
-
-  static async analyzeErrorPattern(errorDetails: ErrorDetails): Promise<void> {
+  async analyzeErrorPattern(errorDetails: ErrorDetails): Promise<void> {
     try {
       // Get similar errors from last 24 hours
-      const similarErrors = await query(
-        `SELECT COUNT(*) as count, MIN(occurred_at) as first_seen
-         FROM error_logs 
-         WHERE error_type = $1 AND severity = $2 
-         AND occurred_at > NOW() - INTERVAL '24 hours'`,
-        [errorDetails.error_type, errorDetails.severity]
-      );
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
 
-      const count = parseInt(similarErrors.rows[0].count);
-      
-      if (count > 10) {
-        // Pattern detected - create or update pattern record
-        const patternId = `${errorDetails.error_type}-${errorDetails.severity}`;
-        
-        await query(
-          `INSERT INTO error_patterns (pattern_id, error_signature, frequency, trend, impact_score, affected_users, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, NOW())
-           ON CONFLICT (pattern_id) 
-           DO UPDATE SET frequency = EXCLUDED.frequency, impact_score = EXCLUDED.impact_score`,
-          [
-            patternId,
-            `${errorDetails.error_type}:${errorDetails.severity}`,
-            count,
-            this.calculateTrend(count),
-            this.calculateImpactScore(errorDetails, count),
-            JSON.stringify([errorDetails.context.user_id].filter(Boolean))
-          ]
-        );
+      const { data: similarErrors } = await supabase
+        .from('error_logs')
+        .select('*')
+        .eq('error_type', errorDetails.error_type)
+        .gte('occurred_at', yesterday.toISOString())
+        .order('occurred_at', { ascending: false });
+
+      if (similarErrors && similarErrors.length >= 5) {
+        // Pattern detected
+        const patternId = uuidv4();
+        await supabase
+          .from('error_patterns')
+          .insert([{
+            pattern_id: patternId,
+            error_codes: [errorDetails.error_code],
+            frequency: similarErrors.length,
+            severity_trend: 'increasing',
+            identified_at: new Date().toISOString()
+          }]);
       }
-    } catch (error) {
-      console.error('Error pattern analysis failed:', error);
+    } catch (patternError) {
+      console.error('Error analyzing pattern:', patternError);
     }
   }
 
-  static calculateTrend(currentCount: number): 'increasing' | 'decreasing' | 'stable' {
-    // This would typically compare with historical data
-    // For now, simplified logic
-    return currentCount > 20 ? 'increasing' : 'stable';
-  }
-
-  static calculateImpactScore(errorDetails: ErrorDetails, frequency: number): number {
-    let score = 0;
-    
-    // Severity weight
-    const severityWeights = { critical: 100, high: 50, medium: 20, low: 5 };
-    score += severityWeights[errorDetails.severity];
-    
-    // Frequency weight
-    score += Math.min(frequency * 2, 100);
-    
-    // User impact weight
-    if (errorDetails.context.user_id) score += 20;
-    if (errorDetails.context.project_id) score += 30;
-    
-    return Math.min(score, 1000);
-  }
-
-  static async sendAlertIfNeeded(errorDetails: ErrorDetails): Promise<void> {
-    const threshold = this.ALERT_THRESHOLDS[errorDetails.severity];
-    
-    // Check if we should send an alert based on frequency
-    const recentCount = await query(
-      `SELECT COUNT(*) as count FROM error_logs 
-       WHERE error_type = $1 AND severity = $2 
-       AND occurred_at > NOW() - INTERVAL '1 hour'`,
-      [errorDetails.error_type, errorDetails.severity]
-    );
-
-    const count = parseInt(recentCount.rows[0].count);
-    
-    if (count >= threshold) {
-      await this.sendAlert(errorDetails, count);
-    }
-  }
-
-  static async sendAlert(errorDetails: ErrorDetails, count: number): Promise<void> {
-    // Check if alert was already sent recently
-    const recentAlert = await query(
-      `SELECT * FROM error_alerts 
-       WHERE error_type = $1 AND severity = $2 
-       AND sent_at > NOW() - INTERVAL '1 hour'`,
-      [errorDetails.error_type, errorDetails.severity]
-    );
-
-    if (recentAlert.rows.length > 0) {
-      return; // Don't spam alerts
-    }
-
-    // Log the alert
-    await query(
-      `INSERT INTO error_alerts (error_type, severity, count, message, sent_at)
-       VALUES ($1, $2, $3, $4, NOW())`,
-      [errorDetails.error_type, errorDetails.severity, count, errorDetails.message]
-    );
-
-    // Send notifications (implement based on your notification system)
-    await this.notifyAdministrators(errorDetails, count);
-  }
-
-  static async notifyAdministrators(errorDetails: ErrorDetails, count: number): Promise<void> {
+  async sendAlertIfNeeded(errorDetails: ErrorDetails): Promise<void> {
     try {
-      // Get admin users
-      const admins = await query(
-        "SELECT email, name FROM users WHERE role IN ('super_admin', 'admin') AND is_active = true"
-      );
+      // Check if we should send alert based on severity and frequency
+      if (errorDetails.severity === ErrorSeverity.CRITICAL) {
+        // Get error count in last hour
+        const oneHourAgo = new Date();
+        oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
-      const subject = `[${errorDetails.severity.toUpperCase()}] Error Alert: ${errorDetails.error_type}`;
-      const message = `
-        Error Alert Triggered
-        
-        Error Type: ${errorDetails.error_type}
-        Severity: ${errorDetails.severity}
-        Count: ${count} occurrences in the last hour
-        Error Code: ${errorDetails.error_code}
-        Message: ${errorDetails.message}
-        
-        Context:
-        - User ID: ${errorDetails.context.user_id || 'N/A'}
-        - Project ID: ${errorDetails.context.project_id || 'N/A'}
-        - Endpoint: ${errorDetails.context.endpoint || 'N/A'}
-        
-        Please investigate this issue promptly.
-      `;
+        const { data: recentErrors, count } = await supabase
+          .from('error_logs')
+          .select('*', { count: 'exact' })
+          .eq('error_code', errorDetails.error_code)
+          .gte('occurred_at', oneHourAgo.toISOString());
 
-      // Send emails to admins (implement based on your email service)
-      for (const admin of admins.rows) {
-        console.log(`Would send alert to ${admin.email}: ${subject}`);
-        // await sendEmail(admin.email, subject, message);
+        if (count && count >= 3) {
+          // Check if alert was sent recently
+          const { data: recentAlerts } = await supabase
+            .from('alert_activity_log')
+            .select('*')
+            .eq('alert_type', 'critical_error')
+            .gte('created_at', oneHourAgo.toISOString())
+            .limit(1);
+
+          if (!recentAlerts || recentAlerts.length === 0) {
+            // Send alert
+            await supabase
+              .from('alerts')
+              .insert([{
+                id: uuidv4(),
+                title: `Critical Error Alert: ${errorDetails.error_code}`,
+                message: `Critical error occurred ${count} times in the last hour: ${errorDetails.message}`,
+                type: 'critical_error',
+                severity: 'high',
+                source: 'error_handler',
+                created_at: new Date().toISOString()
+              }]);
+
+            // Log alert activity
+            await supabase
+              .from('alert_activity_log')
+              .insert([{
+                id: uuidv4(),
+                alert_type: 'critical_error',
+                recipient: 'admin',
+                status: 'sent',
+                created_at: new Date().toISOString()
+              }]);
+          }
+        }
       }
-    } catch (error) {
-      console.error('Failed to notify administrators:', error);
+    } catch (alertError) {
+      console.error('Error sending alert:', alertError);
     }
   }
 
-  static async attemptRecovery(errorDetails: ErrorDetails): Promise<void> {
+  async attemptRecovery(errorDetails: ErrorDetails): Promise<void> {
     try {
+      // Basic recovery strategies based on error type
       switch (errorDetails.error_type) {
-        case 'database':
-          await this.attemptDatabaseRecovery(errorDetails);
+        case ErrorCategory.DATABASE:
+          // Try to reconnect or retry query
+          console.log('Attempting database recovery...');
           break;
-        case 'network':
-          await this.attemptNetworkRecovery(errorDetails);
+        case ErrorCategory.NETWORK:
+          // Retry network request with exponential backoff
+          console.log('Attempting network recovery...');
           break;
-        case 'external':
-          await this.attemptExternalServiceRecovery(errorDetails);
+        case ErrorCategory.AUTH:
+          // Refresh tokens or redirect to login
+          console.log('Attempting auth recovery...');
           break;
         default:
-          // No automatic recovery for other types
-          break;
+          // Log recovery attempt
+          console.log(`No automatic recovery available for ${errorDetails.error_type}`);
       }
+
+      // Log recovery attempt
+      await supabase
+        .from('error_logs')
+        .update({
+          resolution_status: 'investigating'
+        })
+        .eq('id', errorDetails.id);
+
     } catch (recoveryError) {
-      console.error('Recovery attempt failed:', recoveryError);
+      console.error('Error during recovery attempt:', recoveryError);
     }
   }
 
-  static async attemptDatabaseRecovery(errorDetails: ErrorDetails): Promise<void> {
-    // Attempt to retry database operations
-    if (errorDetails.message.includes('timeout')) {
-      // Log retry attempt
-      await query(
-        `INSERT INTO error_recovery_attempts (error_id, recovery_type, attempted_at, status)
-         VALUES ($1, 'database_retry', NOW(), 'attempted')`,
-        [errorDetails.id]
-      );
-    }
-  }
-
-  static async attemptNetworkRecovery(errorDetails: ErrorDetails): Promise<void> {
-    // Log network recovery attempt
-    await query(
-      `INSERT INTO error_recovery_attempts (error_id, recovery_type, attempted_at, status)
-       VALUES ($1, 'network_retry', NOW(), 'attempted')`,
-      [errorDetails.id]
-    );
-  }
-
-  static async attemptExternalServiceRecovery(errorDetails: ErrorDetails): Promise<void> {
-    // Implement circuit breaker pattern
-    await query(
-      `INSERT INTO error_recovery_attempts (error_id, recovery_type, attempted_at, status)
-       VALUES ($1, 'circuit_breaker', NOW(), 'attempted')`,
-      [errorDetails.id]
-    );
-  }
-
-  // Error reporting and analytics
-  static async getErrorSummary(filters: any = {}): Promise<any> {
-    let whereClause = 'WHERE 1=1';
-    const params = [];
-    let paramIndex = 1;
-
-    if (filters.start_date) {
-      whereClause += ` AND occurred_at >= $${paramIndex}`;
-      params.push(filters.start_date);
-      paramIndex++;
-    }
-
-    if (filters.end_date) {
-      whereClause += ` AND occurred_at <= $${paramIndex}`;
-      params.push(filters.end_date);
-      paramIndex++;
-    }
-
-    if (filters.severity) {
-      whereClause += ` AND severity = $${paramIndex}`;
-      params.push(filters.severity);
-      paramIndex++;
-    }
-
-    const result = await query(
-      `SELECT 
-        error_type,
-        severity,
-        COUNT(*) as total_count,
-        SUM(count) as total_occurrences,
-        AVG(count) as avg_occurrences,
-        MIN(occurred_at) as first_seen,
-        MAX(occurred_at) as last_seen
-       FROM error_logs 
-       ${whereClause}
-       GROUP BY error_type, severity
-       ORDER BY total_occurrences DESC`,
-      params
-    );
-
-    return result.rows;
-  }
-
-  static async getTopErrors(limit: number = 10): Promise<any[]> {
-    const result = await query(
-      `SELECT 
-        error_code,
-        message,
-        error_type,
-        severity,
-        SUM(count) as total_count,
-        COUNT(*) as unique_occurrences,
-        MAX(occurred_at) as last_occurrence
-       FROM error_logs 
-       WHERE occurred_at > NOW() - INTERVAL '7 days'
-       GROUP BY error_code, message, error_type, severity
-       ORDER BY total_count DESC
-       LIMIT $1`,
-      [limit]
-    );
-
-    return result.rows;
-  }
-
-  static async resolveError(errorId: string, resolvedBy: string, notes: string): Promise<void> {
-    await query(
-      `UPDATE error_logs 
-       SET resolution_status = 'resolved', 
-           resolved_at = NOW(), 
-           resolution_notes = $1
-       WHERE id = $2`,
-      [notes, errorId]
-    );
-
-    // Log the resolution
-    await query(
-      `INSERT INTO error_resolutions (error_id, resolved_by, resolution_notes, resolved_at)
-       VALUES ($1, $2, $3, NOW())`,
-      [errorId, resolvedBy, notes]
-    );
-  }
-
-  // Cleanup old errors
-  static async cleanupOldErrors(): Promise<void> {
+  async getErrorSummary(timeRange: 'hour' | 'day' | 'week' = 'day'): Promise<any> {
     try {
-      const result = await query(
-        `DELETE FROM error_logs 
-         WHERE occurred_at < NOW() - INTERVAL '${this.ERROR_RETENTION_DAYS} days'
-         AND resolution_status IN ('resolved', 'ignored')`
-      );
+      const timeMap = {
+        hour: 1,
+        day: 24,
+        week: 168
+      };
 
-      console.log(`Cleaned up ${result.rowCount} old error records`);
+      const hoursAgo = new Date();
+      hoursAgo.setHours(hoursAgo.getHours() - timeMap[timeRange]);
+
+      const { data: errors } = await supabase
+        .from('error_logs')
+        .select('*')
+        .gte('occurred_at', hoursAgo.toISOString());
+
+      if (!errors) return { total: 0, by_severity: {}, by_type: {} };
+
+      const summary = {
+        total: errors.length,
+        by_severity: {} as Record<string, number>,
+        by_type: {} as Record<string, number>
+      };
+
+      errors.forEach(error => {
+        summary.by_severity[error.severity] = (summary.by_severity[error.severity] || 0) + 1;
+        summary.by_type[error.error_type] = (summary.by_type[error.error_type] || 0) + 1;
+      });
+
+      return summary;
     } catch (error) {
-      console.error('Error cleanup failed:', error);
+      console.error('Error getting error summary:', error);
+      return { total: 0, by_severity: {}, by_type: {} };
+    }
+  }
+
+  async getTopErrors(limit: number = 10): Promise<any[]> {
+    try {
+      const { data: errors } = await supabase
+        .from('error_logs')
+        .select('error_code, error_type, severity, count, message')
+        .order('count', { ascending: false })
+        .limit(limit);
+
+      return errors || [];
+    } catch (error) {
+      console.error('Error getting top errors:', error);
+      return [];
+    }
+  }
+
+  async resolveError(errorId: string, resolution: string): Promise<void> {
+    try {
+      await supabase
+        .from('error_logs')
+        .update({
+          resolution_status: 'resolved',
+          resolution_notes: resolution,
+          resolved_at: new Date().toISOString()
+        })
+        .eq('id', errorId);
+    } catch (error) {
+      console.error('Error resolving error:', error);
+    }
+  }
+
+  async cleanupOldErrors(daysOld: number = 30): Promise<void> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+      await supabase
+        .from('error_logs')
+        .delete()
+        .lt('occurred_at', cutoffDate.toISOString());
+    } catch (error) {
+      console.error('Error cleaning up old errors:', error);
     }
   }
 }
 
-// Custom error classes for better categorization
+// Custom error classes
 export class ValidationError extends Error {
   constructor(message: string, public field?: string) {
     super(message);
@@ -551,7 +421,7 @@ export class DatabaseError extends Error {
 }
 
 export class AuthenticationError extends Error {
-  constructor(message: string, public code?: string) {
+  constructor(message: string) {
     super(message);
     this.name = 'AuthenticationError';
   }
@@ -564,11 +434,35 @@ export class BusinessRuleError extends Error {
   }
 }
 
-export class ExternalServiceError extends Error {
-  constructor(message: string, public service?: string, public statusCode?: number) {
+export class NetworkError extends Error {
+  constructor(message: string, public endpoint?: string) {
     super(message);
-    this.name = 'ExternalServiceError';
+    this.name = 'NetworkError';
   }
 }
 
-export default ErrorHandler;
+// Global error handler instance
+export const errorHandler = ErrorHandlingService.getInstance();
+
+// Utility functions for common error scenarios
+export const handleAsyncError = async (fn: () => Promise<any>, context?: any) => {
+  try {
+    return await fn();
+  } catch (error) {
+    await errorHandler.handleError(error as Error, context);
+    throw error;
+  }
+};
+
+export const withErrorHandling = (fn: Function, context?: any) => {
+  return async (...args: any[]) => {
+    try {
+      return await fn(...args);
+    } catch (error) {
+      await errorHandler.handleError(error as Error, { ...context, args });
+      throw error;
+    }
+  };
+};
+
+export default ErrorHandlingService;

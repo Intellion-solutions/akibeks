@@ -1,5 +1,5 @@
 import { supabase } from "./db-client";
-import { ErrorHandler } from "./error-handling";
+import { ErrorHandlingService } from "./error-handling";
 import { QueueManager } from "./queue-manager";
 
 export interface FileMetadata {
@@ -104,7 +104,7 @@ export class FileStorageManager {
   ];
 
   constructor() {
-    this.errorHandler = new ErrorHandler();
+    this.errorHandler = ErrorHandlingService.getInstance();
     this.queueManager = new QueueManager();
   }
 
