@@ -38,20 +38,20 @@ import { Link } from 'react-router-dom';
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import SEOWrapper from "@/components/SEOWrapper";
-import { supabase } from "@/lib/db-client";
+import DatabaseClient, { Tables } from "@/core/database/client";
 import { formatDisplayAmount } from "@/lib/currency-utils";
 
 interface Project {
   id: string;
   title: string;
   description: string;
-  image_url?: string;
+  imageUrl?: string;
   location: string;
   status: string;
-  budget_kes: number;
-  completion_percentage: number;
-  client_name?: string;
-  project_type: string;
+  budgetKes: string;
+  completionPercentage: number;
+  clientId?: string;
+  projectType: string;
 }
 
 interface Service {
@@ -60,7 +60,8 @@ interface Service {
   description: string;
   icon: string;
   features: string[];
-  price_range?: string;
+  priceRangeMin?: string;
+  priceRangeMax?: string;
 }
 
 interface Testimonial {
@@ -69,7 +70,7 @@ interface Testimonial {
   company?: string;
   message: string;
   rating: number;
-  project_type?: string;
+  projectType?: string;
   location?: string;
 }
 
@@ -100,30 +101,58 @@ const Index = () => {
   const fetchData = async () => {
     try {
       // Fetch featured projects
-      const { data: projectsData } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('featured', true)
-        .limit(6);
+      const { data: projectsData, error: projectsError } = await DatabaseClient.select<Project>(
+        Tables.projects,
+        {
+          filters: [{ column: 'featured', operator: 'eq', value: true }],
+          limit: 6,
+          orderBy: 'createdAt',
+          orderDirection: 'desc'
+        }
+      );
+
+      if (projectsError) {
+        console.error('Error fetching projects:', projectsError);
+      } else {
+        setFeaturedProjects(projectsData || []);
+      }
 
       // Fetch services
-      const { data: servicesData } = await supabase
-        .from('services')
-        .select('*')
-        .eq('active', true)
-        .limit(6);
+      const { data: servicesData, error: servicesError } = await DatabaseClient.select<Service>(
+        Tables.services,
+        {
+          filters: [{ column: 'active', operator: 'eq', value: true }],
+          limit: 6,
+          orderBy: 'position',
+          orderDirection: 'asc'
+        }
+      );
+
+      if (servicesError) {
+        console.error('Error fetching services:', servicesError);
+      } else {
+        setServices(servicesData || []);
+      }
 
       // Fetch testimonials
-      const { data: testimonialsData } = await supabase
-        .from('testimonials')
-        .select('*')
-        .eq('approved', true)
-        .order('rating', { ascending: false })
-        .limit(6);
+      const { data: testimonialsData, error: testimonialsError } = await DatabaseClient.select<Testimonial>(
+        Tables.testimonials,
+        {
+          filters: [
+            { column: 'approved', operator: 'eq', value: true },
+            { column: 'featured', operator: 'eq', value: true }
+          ],
+          limit: 6,
+          orderBy: 'rating',
+          orderDirection: 'desc'
+        }
+      );
 
-      setFeaturedProjects(projectsData || []);
-      setServices(servicesData || []);
-      setTestimonials(testimonialsData || []);
+      if (testimonialsError) {
+        console.error('Error fetching testimonials:', testimonialsError);
+      } else {
+        setTestimonials(testimonialsData || []);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -134,17 +163,17 @@ const Index = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase
-        .from('contact_submissions')
-        .insert([{
-          name: contactForm.name,
-          email: contactForm.email,
-          phone: contactForm.phone,
-          service_interest: contactForm.service,
-          message: contactForm.message,
-          source: 'homepage_contact',
-          status: 'new'
-        }]);
+      const { data, error } = await DatabaseClient.insert(Tables.contactSubmissions, {
+        name: contactForm.name,
+        email: contactForm.email,
+        phoneNumber: contactForm.phone,
+        serviceInterest: contactForm.service,
+        message: contactForm.message,
+        source: 'homepage_contact',
+        status: 'new',
+        ipAddress: '', // Will be set by middleware in production
+        userAgent: navigator.userAgent
+      });
 
       if (error) throw error;
 
@@ -155,6 +184,7 @@ const Index = () => {
 
       setContactForm({ name: '', email: '', phone: '', service: '', message: '' });
     } catch (error) {
+      console.error('Contact form error:', error);
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
@@ -301,80 +331,112 @@ const Index = () => {
 
             {/* Services Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-              {[
-                {
-                  icon: Building2,
-                  title: "Commercial Construction",
-                  description: "Office buildings, retail spaces, and commercial complexes designed for modern business needs.",
-                  features: ["Office Buildings", "Retail Centers", "Warehouses", "Industrial Facilities"],
-                  color: "blue"
-                },
-                {
-                  icon: Home,
-                  title: "Residential Projects",
-                  description: "Custom homes, residential estates, and housing developments across Kenya.",
-                  features: ["Custom Homes", "Apartments", "Residential Estates", "Affordable Housing"],
-                  color: "green"
-                },
-                {
-                  icon: Wrench,
-                  title: "Civil Engineering",
-                  description: "Infrastructure development including roads, bridges, and water systems.",
-                  features: ["Road Construction", "Bridge Engineering", "Water Systems", "Site Development"],
-                  color: "orange"
-                },
-                {
-                  icon: Hammer,
-                  title: "Renovation & Remodeling",
-                  description: "Transform existing structures with modern upgrades and improvements.",
-                  features: ["Building Renovation", "Interior Remodeling", "Facade Updates", "System Upgrades"],
-                  color: "purple"
-                },
-                {
-                  icon: Users,
-                  title: "Project Management",
-                  description: "End-to-end project management ensuring timely and budget-conscious delivery.",
-                  features: ["Project Planning", "Resource Management", "Quality Control", "Timeline Management"],
-                  color: "red"
-                },
-                {
-                  icon: Shield,
-                  title: "Consultation Services",
-                  description: "Expert advice on construction planning, feasibility studies, and compliance.",
-                  features: ["Feasibility Studies", "Building Permits", "Compliance Review", "Cost Estimation"],
-                  color: "indigo"
-                }
-              ].map((service, index) => (
-                <Card key={index} className="group hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border-0 shadow-lg">
-                  <CardHeader className="pb-4">
-                    <div className={`w-16 h-16 rounded-full bg-${service.color}-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                      <service.icon className={`w-8 h-8 text-${service.color}-600`} />
-                    </div>
-                    <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {service.title}
-                    </CardTitle>
-                    <CardDescription className="text-gray-600">
-                      {service.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2 mb-4">
-                      {service.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-center text-sm text-gray-600">
-                          <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                    <Button asChild variant="outline" className="w-full group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                      <Link to={`/services/${service.title.toLowerCase().replace(/\s+/g, '-')}`}>
-                        Learn More
-                        <ChevronRight className="ml-2 w-4 h-4" />
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+              {services.length > 0 ? services.map((service) => {
+                const IconComponent = (serviceIcons as any)[service.icon] || Building2;
+                
+                return (
+                  <Card key={service.id} className="group hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border-0 shadow-lg">
+                    <CardHeader className="pb-4">
+                      <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                        <IconComponent className="w-8 h-8 text-blue-600" />
+                      </div>
+                      <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        {service.title}
+                      </CardTitle>
+                      <CardDescription className="text-gray-600">
+                        {service.description}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {service.features && service.features.length > 0 && (
+                        <ul className="space-y-2 mb-4">
+                          {service.features.slice(0, 3).map((feature, idx) => (
+                            <li key={idx} className="flex items-center text-sm text-gray-600">
+                              <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                              {feature}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {service.priceRangeMin && service.priceRangeMax && (
+                        <div className="flex items-center justify-between py-2 border-t border-gray-100">
+                          <span className="text-sm text-gray-500">Price Range:</span>
+                          <span className="font-semibold text-blue-600">
+                            {formatDisplayAmount(parseFloat(service.priceRangeMin))} - {formatDisplayAmount(parseFloat(service.priceRangeMax))}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col sm:flex-row gap-2 pt-4">
+                        <Button asChild variant="outline" className="flex-1 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                          <Link to={`/services/${service.id}`}>
+                            Learn More
+                            <ChevronRight className="ml-2 w-4 h-4" />
+                          </Link>
+                        </Button>
+                        <Button asChild size="sm" className="bg-yellow-500 hover:bg-yellow-400 text-black">
+                          <Link to="/request-quote">
+                            Get Quote
+                          </Link>
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              }) : (
+                // Fallback static services if none loaded from database
+                [
+                  {
+                    icon: Building2,
+                    title: "Commercial Construction",
+                    description: "Office buildings, retail spaces, and commercial complexes designed for modern business needs.",
+                    features: ["Office Buildings", "Retail Centers", "Warehouses", "Industrial Facilities"]
+                  },
+                  {
+                    icon: Home,
+                    title: "Residential Projects",
+                    description: "Custom homes, residential estates, and housing developments across Kenya.",
+                    features: ["Custom Homes", "Apartments", "Residential Estates", "Affordable Housing"]
+                  },
+                  {
+                    icon: Wrench,
+                    title: "Civil Engineering",
+                    description: "Infrastructure development including roads, bridges, and water systems.",
+                    features: ["Road Construction", "Bridge Engineering", "Water Systems", "Site Development"]
+                  }
+                ].map((service, index) => (
+                  <Card key={index} className="group hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border-0 shadow-lg">
+                    <CardHeader className="pb-4">
+                      <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                        <service.icon className="w-8 h-8 text-blue-600" />
+                      </div>
+                      <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        {service.title}
+                      </CardTitle>
+                      <CardDescription className="text-gray-600">
+                        {service.description}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-2 mb-4">
+                        {service.features.map((feature, idx) => (
+                          <li key={idx} className="flex items-center text-sm text-gray-600">
+                            <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                      <Button asChild variant="outline" className="w-full group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        <Link to="/services">
+                          Learn More
+                          <ChevronRight className="ml-2 w-4 h-4" />
+                        </Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
 
             {/* View All Services Button */}
@@ -506,13 +568,13 @@ const Index = () => {
                 <Card key={project.id} className="group overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
                   <div className="aspect-video relative overflow-hidden">
                     <img 
-                      src={project.image_url || `https://images.unsplash.com/photo-159007293600${Math.floor(Math.random() * 10)}?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80`}
+                      src={project.imageUrl || `https://images.unsplash.com/photo-159007293600${Math.floor(Math.random() * 10)}?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80`}
                       alt={project.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                     <Badge className="absolute top-4 left-4 bg-blue-600">
-                      {project.project_type}
+                      {project.projectType}
                     </Badge>
                     <div className="absolute bottom-4 left-4 text-white">
                       <div className="flex items-center text-sm mb-1">
@@ -530,14 +592,14 @@ const Index = () => {
                     </p>
                     <div className="flex items-center justify-between mb-4">
                       <div className="text-sm text-gray-500">
-                        Budget: {formatDisplayAmount(project.budget_kes)}
+                        Budget: {formatDisplayAmount(parseFloat(project.budgetKes))}
                       </div>
                       <Badge variant="outline" className={
-                        project.completion_percentage === 100 ? "text-green-600 border-green-200" :
-                        project.completion_percentage > 50 ? "text-blue-600 border-blue-200" :
+                        project.completionPercentage === 100 ? "text-green-600 border-green-200" :
+                        project.completionPercentage > 50 ? "text-blue-600 border-blue-200" :
                         "text-orange-600 border-orange-200"
                       }>
-                        {project.completion_percentage}% Complete
+                        {project.completionPercentage}% Complete
                       </Badge>
                     </div>
                     <Button asChild variant="outline" className="w-full group-hover:bg-blue-600 group-hover:text-white transition-colors">

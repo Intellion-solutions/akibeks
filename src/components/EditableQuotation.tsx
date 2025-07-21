@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Trash2, Save, X, Edit3, Send, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import DatabaseClient from '@/lib/database-client';
+import { db } from '@/lib/db-client';
 
 interface QuotationItem {
   id?: string;

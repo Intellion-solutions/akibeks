@@ -43,7 +43,7 @@ import {
   Settings,
   Search
 } from "lucide-react";
-import { db, mockData } from "@/lib/database";
+import { db } from "@/lib/db-client";
 
 interface AnalyticsData {
   totalRevenue: number;

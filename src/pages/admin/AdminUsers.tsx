@@ -34,7 +34,7 @@ import {
   Key,
   AlertTriangle
 } from "lucide-react";
-import { DatabaseService, mockData } from "@/lib/database";
+import { db } from "@/lib/db-client";
 import { useAdmin } from "@/contexts/AdminContext";
 import AdminLogin from "@/components/AdminLogin";
 import AdminHeader from "@/components/AdminHeader";
@@ -42,7 +42,7 @@ import AdminHeader from "@/components/AdminHeader";
 const AdminUsers = () => {
   const { toast } = useToast();
   const { isAuthenticated } = useAdmin();
-  const [users, setUsers] = useState(mockData.users || []);
+  const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");

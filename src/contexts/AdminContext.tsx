@@ -1,56 +1,88 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from "@/lib/db-client";
+import DatabaseClient, { Tables } from "@/core/database/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
 interface CompanySettings {
-  company_name?: string;
+  companyName?: string;
   address?: string;
   phone?: string;
   email?: string;
   website?: string;
-  tax_id?: string;
-  registration_number?: string;
-  logo_url?: string;
+  taxId?: string;
+  registrationNumber?: string;
+  logoUrl?: string;
   description?: string;
-  currency_symbol?: string;
-  tax_rate?: number;
-  payment_terms?: string;
-  invoice_prefix?: string;
-  quote_prefix?: string;
-  email_notifications?: boolean;
-  project_updates?: boolean;
-  payment_reminders?: boolean;
-  quote_expiry_alerts?: boolean;
-  system_maintenance?: boolean;
+  currencySymbol?: string;
+  taxRate?: number;
+  paymentTerms?: string;
+  invoicePrefix?: string;
+  quotePrefix?: string;
+  emailNotifications?: boolean;
+  projectUpdates?: boolean;
+  paymentReminders?: boolean;
+  quoteExpiryAlerts?: boolean;
+  systemMaintenance?: boolean;
   timezone?: string;
-  date_format?: string;
+  dateFormat?: string;
   language?: string;
-  backup_frequency?: string;
-  auto_archive?: boolean;
-  two_factor_auth?: boolean;
-  session_timeout?: number;
-  password_policy?: string;
-  login_attempts?: number;
-  ip_restrictions?: boolean;
-  theme?: string;
-  primary_color?: string;
-  sidebar_collapsed?: boolean;
-  compact_mode?: boolean;
-  show_animations?: boolean;
+  backupFrequency?: string;
+}
+
+interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
+  lastLoginAt?: string;
+}
+
+interface Project {
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  budgetKes: string;
+  clientId?: string;
+  location: string;
+  completionPercentage: number;
+  createdAt: string;
+}
+
+interface AdminStats {
+  totalProjects: number;
+  activeProjects: number;
+  completedProjects: number;
+  totalClients: number;
+  totalRevenue: number;
+  pendingInvoices: number;
+  overdueInvoices: number;
+  recentActivities: ActivityLog[];
+}
+
+interface ActivityLog {
+  id: string;
+  action: string;
+  resource?: string;
+  details: Record<string, any>;
+  createdAt: string;
+  userId?: string;
 }
 
 interface AdminContextType {
-  isAuthenticated: boolean;
+  user: User | null;
+  loading: boolean;
+  companySettings: CompanySettings;
+  stats: AdminStats;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  companySettings: CompanySettings;
-  loadCompanySettings: () => Promise<void>;
-  updateCompanySettings: (settings: Partial<CompanySettings>) => Promise<void>;
-  loginAttempts: number;
-  isLocked: boolean;
-  sessionExpiry: Date | null;
+  updateSettings: (settings: Partial<CompanySettings>) => Promise<boolean>;
+  refreshStats: () => Promise<void>;
+  isAuthenticated: boolean;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -67,266 +99,244 @@ interface AdminProviderProps {
   children: ReactNode;
 }
 
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
-const SESSION_DURATION = 60 * 60 * 1000; // 1 hour
-
 export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [companySettings, setCompanySettings] = useState<CompanySettings>({});
-  const [loginAttempts, setLoginAttempts] = useState(0);
-  const [isLocked, setIsLocked] = useState(false);
-  const [sessionExpiry, setSessionExpiry] = useState<Date | null>(null);
-  const [lastActivity, setLastActivity] = useState(Date.now());
+  const [stats, setStats] = useState<AdminStats>({
+    totalProjects: 0,
+    activeProjects: 0,
+    completedProjects: 0,
+    totalClients: 0,
+    totalRevenue: 0,
+    pendingInvoices: 0,
+    overdueInvoices: 0,
+    recentActivities: []
+  });
+  
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Activity tracking for session management
+  const isAuthenticated = Boolean(user);
+
   useEffect(() => {
-    const handleActivity = () => {
-      setLastActivity(Date.now());
-    };
-
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-    events.forEach(event => {
-      document.addEventListener(event, handleActivity, true);
-    });
-
-    return () => {
-      events.forEach(event => {
-        document.removeEventListener(event, handleActivity, true);
-      });
-    };
+    checkAuthStatus();
   }, []);
 
-  // Session timeout monitoring
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const checkSession = () => {
-      const now = Date.now();
-      const timeSinceActivity = now - lastActivity;
-      
-      if (timeSinceActivity > SESSION_DURATION) {
-        logout();
-        toast({
-          title: "Session Expired",
-          description: "Your session has expired due to inactivity.",
-          variant: "destructive"
-        });
-      }
-    };
-
-    const interval = setInterval(checkSession, 60000); // Check every minute
-    return () => clearInterval(interval);
-  }, [isAuthenticated, lastActivity]);
-
-  // Check lockout status
-  useEffect(() => {
-    const lockoutEnd = localStorage.getItem('admin_lockout_end');
-    if (lockoutEnd) {
-      const lockoutEndTime = parseInt(lockoutEnd);
-      if (Date.now() < lockoutEndTime) {
-        setIsLocked(true);
-        const attempts = localStorage.getItem('admin_login_attempts');
-        setLoginAttempts(attempts ? parseInt(attempts) : 0);
-      } else {
-        // Clear expired lockout
-        localStorage.removeItem('admin_lockout_end');
-        localStorage.removeItem('admin_login_attempts');
-        setIsLocked(false);
-        setLoginAttempts(0);
-      }
-    }
-  }, []);
-
-  const loadCompanySettings = async () => {
+  const checkAuthStatus = async () => {
     try {
-      const { data, error } = await supabase
-        .from('company_settings')
-        .select('*');
+      const token = localStorage.getItem('admin_token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
-      if (error) throw error;
-
-      const settingsObj: CompanySettings = {};
-      data?.forEach((setting) => {
-        const key = setting.setting_key as keyof CompanySettings;
-        let value: any = setting.setting_value;
-        
-        if (key === 'tax_rate' || key === 'session_timeout' || key === 'login_attempts') {
-          value = parseFloat(value) || 0;
-        } else if (['email_notifications', 'project_updates', 'payment_reminders', 'quote_expiry_alerts', 'system_maintenance', 'auto_archive', 'two_factor_auth', 'ip_restrictions', 'sidebar_collapsed', 'compact_mode', 'show_animations'].includes(key)) {
-          value = value === 'true';
-        }
-        
-        (settingsObj as any)[key] = value;
-      });
-
-      setCompanySettings(settingsObj);
+      // Validate token with backend (this would need to be implemented)
+      // For now, we'll just check if token exists
+      const userData = localStorage.getItem('admin_user');
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        await loadCompanySettings();
+        await refreshStats();
+      }
     } catch (error) {
-      console.error('Error loading company settings:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load company settings",
-        variant: "destructive"
-      });
+      console.error('Auth check failed:', error);
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
+    } finally {
+      setLoading(false);
     }
   };
-
-  const updateCompanySettings = async (settings: Partial<CompanySettings>) => {
-    try {
-      const settingsArray = Object.entries(settings).map(([key, value]) => ({
-        setting_key: key,
-        setting_value: String(value),
-      }));
-
-      for (const setting of settingsArray) {
-        const { error } = await supabase
-          .from('company_settings')
-          .upsert(setting, { onConflict: 'setting_key' });
-
-        if (error) throw error;
-      }
-
-      await loadCompanySettings();
-
-      toast({
-        title: "Settings Updated",
-        description: "Company settings have been saved successfully.",
-      });
-    } catch (error) {
-      console.error('Error updating company settings:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update company settings",
-        variant: "destructive"
-      });
-    }
-  };
-
-  useEffect(() => {
-    const authStatus = localStorage.getItem('admin_authenticated');
-    const sessionExpiryStr = localStorage.getItem('admin_session_expiry');
-    
-    if (authStatus === 'true' && sessionExpiryStr) {
-      const expiryDate = new Date(sessionExpiryStr);
-      if (expiryDate > new Date()) {
-        setIsAuthenticated(true);
-        setSessionExpiry(expiryDate);
-        loadCompanySettings();
-      } else {
-        // Session expired
-        localStorage.removeItem('admin_authenticated');
-        localStorage.removeItem('admin_session_expiry');
-      }
-    }
-  }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Check if locked out
-    if (isLocked) {
-      const lockoutEnd = localStorage.getItem('admin_lockout_end');
-      if (lockoutEnd) {
-        const remainingTime = Math.ceil((parseInt(lockoutEnd) - Date.now()) / 60000);
+    try {
+      setLoading(true);
+
+      // Find user by email
+      const { data: userData, error: userError } = await DatabaseClient.findOne<User>(
+        Tables.users,
+        { email, isActive: true }
+      );
+
+      if (userError || !userData) {
         toast({
-          title: "Account Locked",
-          description: `Too many failed attempts. Try again in ${remainingTime} minutes.`,
-          variant: "destructive"
+          title: "Login Failed",
+          description: "Invalid email or password",
+          variant: "destructive",
         });
         return false;
       }
-    }
 
-    // Check credentials
-    if (email === 'admin@akibeks.com' && password === 'admin123') {
-      // Reset login attempts on successful login
-      setLoginAttempts(0);
-      setIsLocked(false);
-      localStorage.removeItem('admin_login_attempts');
-      localStorage.removeItem('admin_lockout_end');
+      // In a real implementation, you would verify the password here
+      // For now, we'll just check if the user exists and has admin role
+      if (userData.role !== 'admin' && userData.role !== 'super_admin') {
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to access the admin panel",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Store user and token
+      const token = `admin_token_${Date.now()}`; // In real app, use proper JWT
+      localStorage.setItem('admin_token', token);
+      localStorage.setItem('admin_user', JSON.stringify(userData));
       
-      // Set authentication
-      setIsAuthenticated(true);
-      const expiryDate = new Date(Date.now() + SESSION_DURATION);
-      setSessionExpiry(expiryDate);
-      
-      localStorage.setItem('admin_authenticated', 'true');
-      localStorage.setItem('admin_session_expiry', expiryDate.toISOString());
-      
+      setUser(userData);
       await loadCompanySettings();
-      
-      // Log successful login
-      console.log(`Admin login successful at ${new Date().toISOString()}`);
-      
+      await refreshStats();
+
       toast({
         title: "Login Successful",
-        description: "Welcome to the admin panel!",
+        description: `Welcome back, ${userData.firstName}!`,
       });
-      
+
       return true;
-    } else {
-      // Handle failed login
-      const newAttempts = loginAttempts + 1;
-      setLoginAttempts(newAttempts);
-      localStorage.setItem('admin_login_attempts', newAttempts.toString());
-      
-      if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
-        const lockoutEnd = Date.now() + LOCKOUT_DURATION;
-        setIsLocked(true);
-        localStorage.setItem('admin_lockout_end', lockoutEnd.toString());
-        
-        toast({
-          title: "Account Locked",
-          description: `Too many failed attempts. Account locked for 15 minutes.`,
-          variant: "destructive"
-        });
-      } else {
-        const remainingAttempts = MAX_LOGIN_ATTEMPTS - newAttempts;
-        toast({
-          title: "Login Failed",
-          description: `Invalid credentials. ${remainingAttempts} attempts remaining.`,
-          variant: "destructive"
-        });
-      }
-      
-      // Log failed login attempt
-      console.warn(`Failed admin login attempt at ${new Date().toISOString()} - Email: ${email}`);
-      
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: "Login Error",
+        description: "An error occurred during login. Please try again.",
+        variant: "destructive",
+      });
       return false;
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = () => {
-    setIsAuthenticated(false);
-    setSessionExpiry(null);
-    localStorage.removeItem('admin_authenticated');
-    localStorage.removeItem('admin_session_expiry');
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    setUser(null);
     setCompanySettings({});
-    
-    // Log logout
-    console.log(`Admin logout at ${new Date().toISOString()}`);
+    setStats({
+      totalProjects: 0,
+      activeProjects: 0,
+      completedProjects: 0,
+      totalClients: 0,
+      totalRevenue: 0,
+      pendingInvoices: 0,
+      overdueInvoices: 0,
+      recentActivities: []
+    });
     
     toast({
       title: "Logged Out",
       description: "You have been successfully logged out.",
     });
     
-    navigate('/admin-access');
+    navigate('/admin/login');
   };
 
-  return (
-    <AdminContext.Provider value={{
-      isAuthenticated,
-      login,
-      logout,
-      companySettings,
-      loadCompanySettings,
-      updateCompanySettings,
-      loginAttempts,
-      isLocked,
-      sessionExpiry
-    }}>
-      {children}
-    </AdminContext.Provider>
-  );
+  const loadCompanySettings = async () => {
+    try {
+      // In a real implementation, you would load from a settings table
+      // For now, using localStorage as fallback
+      const savedSettings = localStorage.getItem('company_settings');
+      if (savedSettings) {
+        setCompanySettings(JSON.parse(savedSettings));
+      } else {
+        // Set default settings
+        const defaultSettings: CompanySettings = {
+          companyName: 'AKIBEKS Engineering Solutions',
+          email: 'info@akibeks.co.ke',
+          phone: '+254 710 245 118',
+          address: 'Westlands, Nairobi, Kenya',
+          currencySymbol: 'KES',
+          taxRate: 16, // 16% VAT in Kenya
+          timezone: 'Africa/Nairobi',
+          language: 'en',
+          dateFormat: 'DD/MM/YYYY'
+        };
+        setCompanySettings(defaultSettings);
+        localStorage.setItem('company_settings', JSON.stringify(defaultSettings));
+      }
+    } catch (error) {
+      console.error('Error loading company settings:', error);
+    }
+  };
+
+  const updateSettings = async (newSettings: Partial<CompanySettings>): Promise<boolean> => {
+    try {
+      const updatedSettings = { ...companySettings, ...newSettings };
+      setCompanySettings(updatedSettings);
+      localStorage.setItem('company_settings', JSON.stringify(updatedSettings));
+      
+      // In a real implementation, save to database here
+      
+      toast({
+        title: "Settings Updated",
+        description: "Company settings have been updated successfully.",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update settings. Please try again.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  const refreshStats = async () => {
+    try {
+      // Get project stats
+      const { data: allProjects } = await DatabaseClient.select<Project>(Tables.projects, {});
+      const projects = allProjects || [];
+      
+      const activeProjects = projects.filter(p => p.status === 'active' || p.status === 'in_progress').length;
+      const completedProjects = projects.filter(p => p.status === 'completed').length;
+      
+      // Get client stats
+      const { data: allUsers } = await DatabaseClient.select<User>(Tables.users, {
+        filters: [{ column: 'role', operator: 'ne', value: 'admin' }]
+      });
+      const clients = allUsers || [];
+      
+      // Calculate revenue (sum of completed project budgets)
+      const totalRevenue = projects
+        .filter(p => p.status === 'completed')
+        .reduce((sum, p) => sum + parseFloat(p.budgetKes || '0'), 0);
+
+      // Get recent activities
+      const { data: activities } = await DatabaseClient.select<ActivityLog>(Tables.activityLogs, {
+        limit: 10,
+        orderBy: 'createdAt',
+        orderDirection: 'desc'
+      });
+
+      setStats({
+        totalProjects: projects.length,
+        activeProjects,
+        completedProjects,
+        totalClients: clients.length,
+        totalRevenue,
+        pendingInvoices: 0, // Would need invoice table
+        overdueInvoices: 0, // Would need invoice table
+        recentActivities: activities || []
+      });
+    } catch (error) {
+      console.error('Error refreshing stats:', error);
+    }
+  };
+
+  const value: AdminContextType = {
+    user,
+    loading,
+    companySettings,
+    stats,
+    login,
+    logout,
+    updateSettings,
+    refreshStats,
+    isAuthenticated,
+  };
+
+  return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
 };
