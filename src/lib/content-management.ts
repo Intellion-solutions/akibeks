@@ -1,5 +1,29 @@
-import { query } from './database-client';
-import DatabaseClient from './database-client';
+import { clientDb as db } from './client-db';
+import { DatabaseResult } from './client-db';
+
+// Content Management Service
+// Handles dynamic content creation, editing, and management for the AKIBEKS website
+
+export interface ContentItem {
+  id: string;
+  type: 'page' | 'post' | 'service' | 'project' | 'testimonial';
+  title: string;
+  slug: string;
+  content: string;
+  excerpt?: string;
+  status: 'draft' | 'published' | 'archived';
+  author: string;
+  tags: string[];
+  metadata: {
+    seoTitle?: string;
+    seoDescription?: string;
+    featuredImage?: string;
+    publishDate?: Date;
+    lastModified: Date;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface ContentSection {
   id?: string;
@@ -72,7 +96,7 @@ export interface ProjectShowcase {
 export class ContentManagementService {
   // Generic content management
   static async createContent(content: ContentSection, userId: string): Promise<any> {
-    const result = await query(
+    const result = await db.query(
       `INSERT INTO content_sections (page, section, title, content, media_urls, is_published, sort_order, metadata, created_by, created_at) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING *`,
       [
@@ -88,7 +112,7 @@ export class ContentManagementService {
       ]
     );
 
-    await DatabaseClient.logActivity(userId, 'CREATE', 'content_section', result.rows[0].id, content);
+    await db.logActivity(userId, 'CREATE', 'content_section', result.rows[0].id, content);
     return result.rows[0];
   }
 
@@ -100,7 +124,7 @@ export class ContentManagementService {
       whereClause += ' AND is_published = true';
     }
 
-    const result = await query(
+    const result = await db.query(
       `SELECT * FROM content_sections ${whereClause} ORDER BY sort_order ASC, created_at ASC`,
       params
     );
@@ -128,23 +152,23 @@ export class ContentManagementService {
       return value;
     });
 
-    const result = await query(
+    const result = await db.query(
       `UPDATE content_sections SET ${setClause}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       [id, ...values]
     );
 
-    await DatabaseClient.logActivity(userId, 'UPDATE', 'content_section', id, updates);
+    await db.logActivity(userId, 'UPDATE', 'content_section', id, updates);
     return result.rows[0];
   }
 
   static async deleteContent(id: string, userId: string): Promise<void> {
-    await query('DELETE FROM content_sections WHERE id = $1', [id]);
-    await DatabaseClient.logActivity(userId, 'DELETE', 'content_section', id);
+    await db.query('DELETE FROM content_sections WHERE id = $1', [id]);
+    await db.logActivity(userId, 'DELETE', 'content_section', id);
   }
 
   // Services content management
   static async createService(service: ServiceContent, userId: string): Promise<any> {
-    const result = await query(
+    const result = await db.query(
       `INSERT INTO services_content (title, description, icon, features, pricing, gallery, testimonials, is_featured, is_active, category, tags, seo_meta, created_by, created_at) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW()) RETURNING *`,
       [
@@ -164,7 +188,7 @@ export class ContentManagementService {
       ]
     );
 
-    await DatabaseClient.logActivity(userId, 'CREATE', 'service', result.rows[0].id, service);
+    await db.logActivity(userId, 'CREATE', 'service', result.rows[0].id, service);
     return result.rows[0];
   }
 
@@ -174,7 +198,7 @@ export class ContentManagementService {
       whereClause = 'WHERE is_active = true';
     }
 
-    const result = await query(
+    const result = await db.query(
       `SELECT * FROM services_content ${whereClause} ORDER BY is_featured DESC, created_at DESC`
     );
 
@@ -204,23 +228,23 @@ export class ContentManagementService {
       return value;
     });
 
-    const result = await query(
+    const result = await db.query(
       `UPDATE services_content SET ${setClause}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       [id, ...values]
     );
 
-    await DatabaseClient.logActivity(userId, 'UPDATE', 'service', id, updates);
+    await db.logActivity(userId, 'UPDATE', 'service', id, updates);
     return result.rows[0];
   }
 
   static async deleteService(id: string, userId: string): Promise<void> {
-    await query('DELETE FROM services_content WHERE id = $1', [id]);
-    await DatabaseClient.logActivity(userId, 'DELETE', 'service', id);
+    await db.query('DELETE FROM services_content WHERE id = $1', [id]);
+    await db.logActivity(userId, 'DELETE', 'service', id);
   }
 
   // Project showcase management
   static async createProjectShowcase(project: ProjectShowcase, userId: string): Promise<any> {
-    const result = await query(
+    const result = await db.query(
       `INSERT INTO projects_showcase (title, description, client_name, industry, project_type, duration, team_size, technologies, challenges, solutions, results, images, video_url, case_study_url, is_featured, is_active, completion_date, budget_range, testimonial, created_by, created_at) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW()) RETURNING *`,
       [
@@ -247,7 +271,7 @@ export class ContentManagementService {
       ]
     );
 
-    await DatabaseClient.logActivity(userId, 'CREATE', 'project_showcase', result.rows[0].id, project);
+    await db.logActivity(userId, 'CREATE', 'project_showcase', result.rows[0].id, project);
     return result.rows[0];
   }
 
@@ -257,7 +281,7 @@ export class ContentManagementService {
       whereClause = 'WHERE is_active = true';
     }
 
-    const result = await query(
+    const result = await db.query(
       `SELECT * FROM projects_showcase ${whereClause} ORDER BY is_featured DESC, completion_date DESC`
     );
 
@@ -287,18 +311,18 @@ export class ContentManagementService {
       return value;
     });
 
-    const result = await query(
+    const result = await db.query(
       `UPDATE projects_showcase SET ${setClause}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       [id, ...values]
     );
 
-    await DatabaseClient.logActivity(userId, 'UPDATE', 'project_showcase', id, updates);
+    await db.logActivity(userId, 'UPDATE', 'project_showcase', id, updates);
     return result.rows[0];
   }
 
   static async deleteProjectShowcase(id: string, userId: string): Promise<void> {
-    await query('DELETE FROM projects_showcase WHERE id = $1', [id]);
-    await DatabaseClient.logActivity(userId, 'DELETE', 'project_showcase', id);
+    await db.query('DELETE FROM projects_showcase WHERE id = $1', [id]);
+    await db.logActivity(userId, 'DELETE', 'project_showcase', id);
   }
 
   // Media management
@@ -308,13 +332,13 @@ export class ContentManagementService {
     const filePath = `/uploads/${category}/${fileName}`;
     
     // In production, upload to cloud storage (AWS S3, Google Cloud, etc.)
-    const mediaRecord = await query(
+    const mediaRecord = await db.query(
       `INSERT INTO media_library (filename, original_name, file_path, file_size, mime_type, category, uploaded_by, created_at) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
       [fileName, file.name, filePath, file.size, file.type, category, userId]
     );
 
-    await DatabaseClient.logActivity(userId, 'UPLOAD', 'media', mediaRecord.rows[0].id, {
+    await db.logActivity(userId, 'UPLOAD', 'media', mediaRecord.rows[0].id, {
       filename: fileName,
       category,
       size: file.size
@@ -332,7 +356,7 @@ export class ContentManagementService {
       params.push(category);
     }
 
-    const result = await query(
+    const result = await db.query(
       `SELECT * FROM media_library ${whereClause} ORDER BY created_at DESC`,
       params
     );
@@ -341,13 +365,13 @@ export class ContentManagementService {
   }
 
   static async deleteMedia(id: string, userId: string): Promise<void> {
-    await query('DELETE FROM media_library WHERE id = $1', [id]);
-    await DatabaseClient.logActivity(userId, 'DELETE', 'media', id);
+    await db.query('DELETE FROM media_library WHERE id = $1', [id]);
+    await db.logActivity(userId, 'DELETE', 'media', id);
   }
 
   // SEO management
   static async updateSEOSettings(page: string, seoData: any, userId: string): Promise<any> {
-    const result = await query(
+    const result = await db.query(
       `INSERT INTO seo_settings (page, title, description, keywords, og_title, og_description, og_image, twitter_title, twitter_description, twitter_image, canonical_url, robots, updated_by, updated_at) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW()) 
        ON CONFLICT (page) DO UPDATE SET 
@@ -371,12 +395,12 @@ export class ContentManagementService {
       ]
     );
 
-    await DatabaseClient.logActivity(userId, 'UPDATE', 'seo_settings', page, seoData);
+    await db.logActivity(userId, 'UPDATE', 'seo_settings', page, seoData);
     return result.rows[0];
   }
 
   static async getSEOSettings(page: string): Promise<any> {
-    const result = await query('SELECT * FROM seo_settings WHERE page = $1', [page]);
+    const result = await db.query('SELECT * FROM seo_settings WHERE page = $1', [page]);
     
     if (result.rows.length > 0) {
       const row = result.rows[0];
@@ -409,7 +433,7 @@ export class ContentManagementService {
       params.push(endDate);
     }
 
-    const result = await query(
+    const result = await db.query(
       `SELECT 
         page,
         COUNT(*) as total_sections,
@@ -427,19 +451,19 @@ export class ContentManagementService {
 
   // Bulk operations
   static async bulkUpdateContentStatus(ids: string[], isPublished: boolean, userId: string): Promise<void> {
-    await query(
+    await db.query(
       `UPDATE content_sections SET is_published = $1, updated_at = NOW() WHERE id = ANY($2)`,
       [isPublished, ids]
     );
 
-    await DatabaseClient.logActivity(userId, 'BULK_UPDATE', 'content_section', 'multiple', {
+    await db.logActivity(userId, 'BULK_UPDATE', 'content_section', 'multiple', {
       ids,
       action: isPublished ? 'publish' : 'unpublish'
     });
   }
 
   static async duplicateContent(id: string, userId: string): Promise<any> {
-    const original = await query('SELECT * FROM content_sections WHERE id = $1', [id]);
+    const original = await db.query('SELECT * FROM content_sections WHERE id = $1', [id]);
     
     if (original.rows.length === 0) {
       throw new Error('Content not found');
@@ -457,7 +481,7 @@ export class ContentManagementService {
     delete duplicateData.created_at;
     delete duplicateData.updated_at;
 
-    const result = await query(
+    const result = await db.query(
       `INSERT INTO content_sections (page, section, title, content, media_urls, is_published, sort_order, metadata, created_by, created_at) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING *`,
       [
@@ -473,7 +497,7 @@ export class ContentManagementService {
       ]
     );
 
-    await DatabaseClient.logActivity(userId, 'DUPLICATE', 'content_section', result.rows[0].id, {
+    await db.logActivity(userId, 'DUPLICATE', 'content_section', result.rows[0].id, {
       original_id: id
     });
 

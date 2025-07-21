@@ -1,5 +1,5 @@
-import { query } from './database-client';
-import DatabaseClient from './database-client';
+import { clientDb as db } from './client-db';
+import { DatabaseResult } from './client-db';
 
 export interface AutomationTrigger {
   type: 'project_created' | 'task_completed' | 'invoice_overdue' | 'deadline_approaching' | 'time_logged' | 'status_changed';
@@ -38,7 +38,7 @@ export interface Automation {
 export class AutomationService {
   // Automation CRUD operations
   static async createAutomation(automation: Automation, userId: string): Promise<any> {
-    const result = await query(
+    const result = await db.query(
       'INSERT INTO automations (name, description, trigger_type, trigger_conditions, actions, is_active, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *',
       [
         automation.name,
@@ -51,7 +51,7 @@ export class AutomationService {
       ]
     );
 
-    await DatabaseClient.logActivity(userId, 'CREATE', 'automation', result.rows[0].id, automation);
+    await db.logActivity(userId, 'CREATE', 'automation', result.rows[0].id, automation);
     return result.rows[0];
   }
 
@@ -61,7 +61,7 @@ export class AutomationService {
       whereClause = 'WHERE is_active = true';
     }
 
-    const result = await query(
+    const result = await db.query(
       `SELECT a.*, u.name as created_by_name FROM automations a 
        LEFT JOIN users u ON a.created_by = u.id 
        ${whereClause} 
@@ -90,18 +90,18 @@ export class AutomationService {
       return value;
     });
 
-    const result = await query(
+    const result = await db.query(
       `UPDATE automations SET ${setClause}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       [id, ...values]
     );
 
-    await DatabaseClient.logActivity(userId, 'UPDATE', 'automation', id, updates);
+    await db.logActivity(userId, 'UPDATE', 'automation', id, updates);
     return result.rows[0];
   }
 
   static async deleteAutomation(id: string, userId: string): Promise<void> {
-    await query('DELETE FROM automations WHERE id = $1', [id]);
-    await DatabaseClient.logActivity(userId, 'DELETE', 'automation', id);
+    await db.query('DELETE FROM automations WHERE id = $1', [id]);
+    await db.logActivity(userId, 'DELETE', 'automation', id);
   }
 
   // Trigger execution
@@ -119,7 +119,7 @@ export class AutomationService {
           await this.executeActions(automation.actions, data, automation.id);
           
           // Log successful execution
-          await query(
+          await db.query(
             'INSERT INTO automation_logs (automation_id, trigger_data, executed_actions, status, execution_time, created_at) VALUES ($1, $2, $3, $4, $5, NOW())',
             [automation.id, JSON.stringify(data), JSON.stringify(automation.actions), 'success', Date.now()]
           );
@@ -128,7 +128,7 @@ export class AutomationService {
         console.error(`Automation execution failed for ${automation.id}:`, error);
         
         // Log failed execution
-        await query(
+        await db.query(
           'INSERT INTO automation_logs (automation_id, trigger_data, status, error_message, created_at) VALUES ($1, $2, $3, $4, NOW())',
           [automation.id, JSON.stringify(data), 'error', error.message]
         );
@@ -206,7 +206,7 @@ export class AutomationService {
     const { template_id, recipient } = action.parameters;
     
     if (template_id) {
-      const template = await query('SELECT * FROM email_templates WHERE id = $1', [template_id]);
+      const template = await db.query('SELECT * FROM email_templates WHERE id = $1', [template_id]);
       if (template.rows.length > 0) {
         const emailTemplate = template.rows[0];
         const processedBody = this.processTemplate(emailTemplate.body, data);
@@ -223,7 +223,7 @@ export class AutomationService {
     
     if (recipient && message) {
       const processedMessage = this.processTemplate(message, data);
-      await DatabaseClient.createNotification(recipient, 'Automation Alert', processedMessage, 'automation');
+      await db.createNotification(recipient, 'Automation Alert', processedMessage, 'automation');
     }
   }
 
@@ -231,7 +231,7 @@ export class AutomationService {
     const { status } = action.parameters;
     
     if (status && data.id && data.table) {
-      await query(
+      await db.query(
         `UPDATE ${data.table} SET status = $1, updated_at = NOW() WHERE id = $2`,
         [status, data.id]
       );
@@ -242,7 +242,7 @@ export class AutomationService {
     const { user_id } = action.parameters;
     
     if (user_id && data.id && data.table) {
-      await query(
+      await db.query(
         `UPDATE ${data.table} SET assigned_to = $1, updated_at = NOW() WHERE id = $2`,
         [user_id, data.id]
       );
@@ -260,7 +260,7 @@ export class AutomationService {
         description: this.processTemplate(task_data.description, data)
       };
 
-      await query(
+      await db.query(
         'INSERT INTO tasks (title, description, project_id, status, priority, created_at) VALUES ($1, $2, $3, $4, $5, NOW())',
         [processedTaskData.title, processedTaskData.description, processedTaskData.project_id, 'pending', 'medium']
       );
@@ -304,7 +304,7 @@ export class AutomationService {
   // Scheduled automation checks
   static async runScheduledChecks(): Promise<void> {
     // Check for overdue invoices
-    const overdueInvoices = await query(`
+    const overdueInvoices = await db.query(`
       SELECT * FROM invoices 
       WHERE status = 'sent' AND due_date < NOW() - INTERVAL '1 day'
     `);
@@ -314,7 +314,7 @@ export class AutomationService {
     }
 
     // Check for approaching deadlines
-    const approachingDeadlines = await query(`
+    const approachingDeadlines = await db.query(`
       SELECT * FROM tasks 
       WHERE status != 'completed' AND due_date BETWEEN NOW() AND NOW() + INTERVAL '3 days'
     `);
@@ -324,7 +324,7 @@ export class AutomationService {
     }
 
     // Check for project deadlines
-    const projectDeadlines = await query(`
+    const projectDeadlines = await db.query(`
       SELECT * FROM projects 
       WHERE status = 'active' AND end_date BETWEEN NOW() AND NOW() + INTERVAL '7 days'
     `);
@@ -336,12 +336,12 @@ export class AutomationService {
 
   // Email template management
   static async createEmailTemplate(template: any, userId: string): Promise<any> {
-    const result = await query(
+    const result = await db.query(
       'INSERT INTO email_templates (name, subject, body, template_type, variables, is_active, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *',
       [template.name, template.subject, template.body, template.template_type, JSON.stringify(template.variables), template.is_active, userId]
     );
 
-    await DatabaseClient.logActivity(userId, 'CREATE', 'email_template', result.rows[0].id, template);
+    await db.logActivity(userId, 'CREATE', 'email_template', result.rows[0].id, template);
     return result.rows[0];
   }
 
@@ -354,7 +354,7 @@ export class AutomationService {
       params.push(type);
     }
 
-    const result = await query(
+    const result = await db.query(
       `SELECT * FROM email_templates ${whereClause} ORDER BY created_at DESC`,
       params
     );
@@ -374,18 +374,18 @@ export class AutomationService {
       return value;
     });
 
-    const result = await query(
+    const result = await db.query(
       `UPDATE email_templates SET ${setClause}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       [id, ...values]
     );
 
-    await DatabaseClient.logActivity(userId, 'UPDATE', 'email_template', id, updates);
+    await db.logActivity(userId, 'UPDATE', 'email_template', id, updates);
     return result.rows[0];
   }
 
   static async deleteEmailTemplate(id: string, userId: string): Promise<void> {
-    await query('DELETE FROM email_templates WHERE id = $1', [id]);
-    await DatabaseClient.logActivity(userId, 'DELETE', 'email_template', id);
+    await db.query('DELETE FROM email_templates WHERE id = $1', [id]);
+    await db.logActivity(userId, 'DELETE', 'email_template', id);
   }
 
   // Common automation triggers that can be called from other parts of the application

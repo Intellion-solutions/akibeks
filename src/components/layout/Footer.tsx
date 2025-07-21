@@ -13,7 +13,33 @@ import {
   ArrowUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { APP_CONFIG, PAGES_CONFIG } from '../../../config';
+// Configuration constants
+const APP_CONFIG = {
+  name: 'AKIBEKS Engineering Solutions',
+  url: 'https://akibeks.co.ke',
+  contact: {
+    email: 'info@akibeks.co.ke',
+    phone: '+254 700 000 000',
+    address: 'Nairobi, Kenya',
+    workingHours: 'Mon-Fri 8:00 AM - 6:00 PM EAT'
+  },
+  social: {
+    facebook: 'https://facebook.com/akibeksengineering',
+    twitter: 'https://twitter.com/akibekseng',
+    linkedin: 'https://linkedin.com/company/akibeks',
+    instagram: 'https://instagram.com/akibeksengineering'
+  }
+};
+
+const PAGES_CONFIG = {
+  footer: [
+    { name: 'Privacy Policy', path: '/privacy' },
+    { name: 'Terms of Service', path: '/terms' },
+    { name: 'Careers', path: '/careers' },
+    { name: 'News', path: '/news' },
+    { name: 'FAQ', path: '/faq' }
+  ]
+};
 
 const Footer = () => {
   const scrollToTop = () => {

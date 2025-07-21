@@ -188,6 +188,22 @@ export const clientDb = {
 
   async healthCheck(): Promise<DatabaseResult<boolean>> {
     return { success: true, data: true };
+  },
+
+  // Raw query method for compatibility (mock implementation)
+  async query(sql: string, params?: any[]): Promise<{ rows: any[] }> {
+    console.warn('Raw SQL query called in client-side mock:', sql, params);
+    // Return empty result for compatibility
+    return { rows: [] };
+  },
+
+  // Additional compatibility methods
+  async logActivity(userId: string, action: string, resource: string, resourceId: string, details?: any): Promise<void> {
+    console.log('Activity logged:', { userId, action, resource, resourceId, details });
+  },
+
+  async createNotification(userId: string, title: string, message: string, type: string): Promise<void> {
+    console.log('Notification created:', { userId, title, message, type });
   }
 };
 
