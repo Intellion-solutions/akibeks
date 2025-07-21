@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import DatabaseClient, { Tables } from "@/core/database/client";
+import { dbClient, Tables } from '@/core/database-client';
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
@@ -73,16 +73,22 @@ interface ActivityLog {
   userId?: string;
 }
 
-interface AdminContextType {
+export interface AdminContextType {
   user: User | null;
   loading: boolean;
-  companySettings: CompanySettings;
-  stats: AdminStats;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  updateSettings: (settings: Partial<CompanySettings>) => Promise<boolean>;
   refreshStats: () => Promise<void>;
-  isAuthenticated: boolean;
+  stats: {
+    totalProjects: number;
+    activeProjects: number;
+    totalClients: number;
+    totalRevenue: number;
+    pendingTasks: number;
+    completedTasks: number;
+    overdueProjects: number;
+    monthlyRevenue: number;
+  };
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -95,248 +101,159 @@ export const useAdmin = () => {
   return context;
 };
 
-interface AdminProviderProps {
-  children: ReactNode;
-}
-
-export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
+export function AdminProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [companySettings, setCompanySettings] = useState<CompanySettings>({});
-  const [stats, setStats] = useState<AdminStats>({
+  const [stats, setStats] = useState({
     totalProjects: 0,
     activeProjects: 0,
-    completedProjects: 0,
     totalClients: 0,
     totalRevenue: 0,
-    pendingInvoices: 0,
-    overdueInvoices: 0,
-    recentActivities: []
+    pendingTasks: 0,
+    completedTasks: 0,
+    overdueProjects: 0,
+    monthlyRevenue: 0,
   });
-  
+
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const isAuthenticated = Boolean(user);
-
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
+  const login = async (email: string, password: string) => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      // Validate token with backend (this would need to be implemented)
-      // For now, we'll just check if token exists
-      const userData = localStorage.getItem('admin_user');
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        await loadCompanySettings();
-        await refreshStats();
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      localStorage.removeItem('admin_token');
-      localStorage.removeItem('admin_user');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const login = async (email: string, password: string): Promise<boolean> => {
-    try {
-      setLoading(true);
-
-      // Find user by email
-      const { data: userData, error: userError } = await DatabaseClient.findOne<User>(
-        Tables.users,
-        { email, isActive: true }
-      );
-
-      if (userError || !userData) {
-        toast({
-          title: "Login Failed",
-          description: "Invalid email or password",
-          variant: "destructive",
-        });
-        return false;
-      }
-
-      // In a real implementation, you would verify the password here
-      // For now, we'll just check if the user exists and has admin role
-      if (userData.role !== 'admin' && userData.role !== 'super_admin') {
-        toast({
-          title: "Access Denied",
-          description: "You don't have permission to access the admin panel",
-          variant: "destructive",
-        });
-        return false;
-      }
-
-      // Store user and token
-      const token = `admin_token_${Date.now()}`; // In real app, use proper JWT
-      localStorage.setItem('admin_token', token);
-      localStorage.setItem('admin_user', JSON.stringify(userData));
-      
-      setUser(userData);
-      await loadCompanySettings();
-      await refreshStats();
-
-      toast({
-        title: "Login Successful",
-        description: `Welcome back, ${userData.firstName}!`,
+      // Use the new database client for authentication
+      const result = await dbClient.findOne(Tables.users, { 
+        email: email.toLowerCase(),
+        isActive: true 
       });
 
-      return true;
+      if (result.error || !result.data) {
+        throw new Error('Invalid credentials');
+      }
+
+      const userData = result.data as User;
+      
+      // In a real implementation, you would verify the password here
+      // For now, we'll just check if the user exists and is an admin
+      if (userData.role !== 'admin') {
+        throw new Error('Access denied. Admin privileges required.');
+      }
+
+      setUser(userData);
+      
+      // Update last login time
+      await dbClient.update(Tables.users, userData.id, {
+        lastLoginAt: new Date()
+      });
+
+      // Refresh stats after login
+      await refreshStats();
     } catch (error) {
       console.error('Login error:', error);
-      toast({
-        title: "Login Error",
-        description: "An error occurred during login. Please try again.",
-        variant: "destructive",
-      });
-      return false;
-    } finally {
-      setLoading(false);
+      throw error;
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_user');
     setUser(null);
-    setCompanySettings({});
-    setStats({
-      totalProjects: 0,
-      activeProjects: 0,
-      completedProjects: 0,
-      totalClients: 0,
-      totalRevenue: 0,
-      pendingInvoices: 0,
-      overdueInvoices: 0,
-      recentActivities: []
-    });
-    
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out.",
-    });
-    
-    navigate('/admin/login');
-  };
-
-  const loadCompanySettings = async () => {
-    try {
-      // In a real implementation, you would load from a settings table
-      // For now, using localStorage as fallback
-      const savedSettings = localStorage.getItem('company_settings');
-      if (savedSettings) {
-        setCompanySettings(JSON.parse(savedSettings));
-      } else {
-        // Set default settings
-        const defaultSettings: CompanySettings = {
-          companyName: 'AKIBEKS Engineering Solutions',
-          email: 'info@akibeks.co.ke',
-          phone: '+254 710 245 118',
-          address: 'Westlands, Nairobi, Kenya',
-          currencySymbol: 'KES',
-          taxRate: 16, // 16% VAT in Kenya
-          timezone: 'Africa/Nairobi',
-          language: 'en',
-          dateFormat: 'DD/MM/YYYY'
-        };
-        setCompanySettings(defaultSettings);
-        localStorage.setItem('company_settings', JSON.stringify(defaultSettings));
-      }
-    } catch (error) {
-      console.error('Error loading company settings:', error);
-    }
-  };
-
-  const updateSettings = async (newSettings: Partial<CompanySettings>): Promise<boolean> => {
-    try {
-      const updatedSettings = { ...companySettings, ...newSettings };
-      setCompanySettings(updatedSettings);
-      localStorage.setItem('company_settings', JSON.stringify(updatedSettings));
-      
-      // In a real implementation, save to database here
-      
-      toast({
-        title: "Settings Updated",
-        description: "Company settings have been updated successfully.",
-      });
-      
-      return true;
-    } catch (error) {
-      console.error('Error updating settings:', error);
-      toast({
-        title: "Update Failed",
-        description: "Failed to update settings. Please try again.",
-        variant: "destructive",
-      });
-      return false;
-    }
+    // Clear any stored authentication tokens if using them
   };
 
   const refreshStats = async () => {
     try {
-      // Get project stats
-      const { data: allProjects } = await DatabaseClient.select<Project>(Tables.projects, {});
-      const projects = allProjects || [];
-      
-      const activeProjects = projects.filter(p => p.status === 'active' || p.status === 'in_progress').length;
-      const completedProjects = projects.filter(p => p.status === 'completed').length;
-      
-      // Get client stats
-      const { data: allUsers } = await DatabaseClient.select<User>(Tables.users, {
-        filters: [{ column: 'role', operator: 'ne', value: 'admin' }]
-      });
-      const clients = allUsers || [];
-      
-      // Calculate revenue (sum of completed project budgets)
-      const totalRevenue = projects
-        .filter(p => p.status === 'completed')
-        .reduce((sum, p) => sum + parseFloat(p.budgetKes || '0'), 0);
+      // Get project statistics
+      const [
+        totalProjectsResult,
+        activeProjectsResult,
+        totalClientsResult
+      ] = await Promise.all([
+        dbClient.count(Tables.projects),
+        dbClient.count(Tables.projects, [{ column: 'status', operator: 'eq', value: 'active' }]),
+        dbClient.count(Tables.users, [{ column: 'role', operator: 'eq', value: 'client' }])
+      ]);
 
-      // Get recent activities
-      const { data: activities } = await DatabaseClient.select<ActivityLog>(Tables.activityLogs, {
-        limit: 10,
-        orderBy: 'createdAt',
-        orderDirection: 'desc'
+      // Get revenue data (assuming projects have budgetKes field)
+      const projectsResult = await dbClient.select(Tables.projects, {
+        filters: [{ column: 'status', operator: 'in', value: ['active', 'completed'] }]
+      });
+
+      let totalRevenue = 0;
+      let monthlyRevenue = 0;
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+
+      if (projectsResult.data) {
+        totalRevenue = projectsResult.data.reduce((sum: number, project: any) => {
+          return sum + (parseFloat(project.budgetKes) || 0);
+        }, 0);
+
+        monthlyRevenue = projectsResult.data
+          .filter((project: any) => {
+            const projectDate = new Date(project.createdAt);
+            return projectDate.getMonth() === currentMonth && 
+                   projectDate.getFullYear() === currentYear;
+          })
+          .reduce((sum: number, project: any) => {
+            return sum + (parseFloat(project.budgetKes) || 0);
+          }, 0);
+      }
+
+      // Calculate overdue projects
+      const overdueProjectsResult = await dbClient.select(Tables.projects, {
+        filters: [
+          { column: 'status', operator: 'eq', value: 'active' },
+          { column: 'endDate', operator: 'lt', value: new Date().toISOString() }
+        ]
       });
 
       setStats({
-        totalProjects: projects.length,
-        activeProjects,
-        completedProjects,
-        totalClients: clients.length,
+        totalProjects: totalProjectsResult.data || 0,
+        activeProjects: activeProjectsResult.data || 0,
+        totalClients: totalClientsResult.data || 0,
         totalRevenue,
-        pendingInvoices: 0, // Would need invoice table
-        overdueInvoices: 0, // Would need invoice table
-        recentActivities: activities || []
+        pendingTasks: 0, // TODO: Implement tasks table
+        completedTasks: 0, // TODO: Implement tasks table
+        overdueProjects: overdueProjectsResult.data?.length || 0,
+        monthlyRevenue,
       });
     } catch (error) {
       console.error('Error refreshing stats:', error);
     }
   };
 
+  useEffect(() => {
+    // Check for existing session or stored auth token
+    const initializeAuth = async () => {
+      try {
+        // TODO: Implement session/token validation
+        // For now, we'll just set loading to false
+        setLoading(false);
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      refreshStats();
+    }
+  }, [user]);
+
   const value: AdminContextType = {
     user,
     loading,
-    companySettings,
-    stats,
     login,
     logout,
-    updateSettings,
     refreshStats,
-    isAuthenticated,
+    stats,
   };
 
-  return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
-};
+  return (
+    <AdminContext.Provider value={value}>
+      {children}
+    </AdminContext.Provider>
+  );
+}

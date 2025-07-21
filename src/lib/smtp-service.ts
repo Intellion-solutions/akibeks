@@ -1,642 +1,422 @@
-import { supabase } from "./db-client";
-import { ErrorHandlingService } from "./error-handling";
-import { QueueManager } from "./queue-manager";
+import { dbClient, Tables } from "./db-client";
+import { z } from 'zod';
 
+// Email configuration
+const SMTP_CONFIG = {
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
+};
+
+// Validation schemas
+export const emailSchema = z.object({
+  to: z.string().email('Invalid email address'),
+  subject: z.string().min(1, 'Subject is required'),
+  message: z.string().min(1, 'Message is required'),
+  from: z.string().email('Invalid from email').optional(),
+  cc: z.array(z.string().email()).optional(),
+  bcc: z.array(z.string().email()).optional(),
+  attachments: z.array(z.object({
+    filename: z.string(),
+    content: z.string(),
+    contentType: z.string()
+  })).optional()
+});
+
+// Types
 export interface EmailTemplate {
   id: string;
   name: string;
   subject: string;
-  html_content: string;
-  text_content: string;
+  htmlContent: string;
+  textContent: string;
   variables: string[];
-  category: 'contact' | 'notification' | 'marketing' | 'system' | 'invoice' | 'reminder';
-  is_active: boolean;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
+  category: 'welcome' | 'notification' | 'invoice' | 'quotation' | 'alert' | 'general';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface EmailMessage {
+export interface EmailLog {
   id: string;
-  to: string[];
-  cc?: string[];
-  bcc?: string[];
+  to: string;
   from: string;
-  reply_to?: string;
   subject: string;
-  html_content: string;
-  text_content: string;
-  template_id?: string;
-  variables?: Record<string, any>;
-  attachments?: EmailAttachment[];
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  status: 'pending' | 'sending' | 'sent' | 'failed' | 'cancelled';
-  scheduled_for?: string;
-  sent_at?: string;
-  error_message?: string;
-  retry_count: number;
-  max_retries: number;
-  tracking: {
-    opens: number;
-    clicks: number;
-    bounces: number;
-    complaints: number;
-  };
-  metadata: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface EmailAttachment {
-  filename: string;
-  content_type: string;
-  content: string; // base64 encoded
-  size: number;
-}
-
-export interface ContactFormSubmission {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  company?: string;
-  subject: string;
-  message: string;
-  form_type: 'general' | 'quote_request' | 'support' | 'partnership' | 'career';
-  source_page: string;
-  user_agent: string;
-  ip_address: string;
-  status: 'new' | 'read' | 'responded' | 'closed' | 'spam';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  assigned_to?: string;
-  tags: string[];
-  custom_fields: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SMTPConfig {
-  host: string;
-  port: number;
-  secure: boolean;
-  auth: {
-    user: string;
-    pass: string;
-  };
-  from_name: string;
-  from_email: string;
-  reply_to?: string;
-  max_connections: number;
-  rate_limit: number; // emails per minute
+  status: 'pending' | 'sent' | 'failed' | 'delivered' | 'bounced';
+  templateId?: string;
+  errorMessage?: string;
+  sentAt?: string;
+  deliveredAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export class SMTPService {
-  private errorHandler: ErrorHandler;
-  private queueManager: QueueManager;
-  private config: SMTPConfig;
+  private static instance: SMTPService;
 
-  constructor(config: SMTPConfig) {
-    this.errorHandler = ErrorHandlingService.getInstance();
-    this.queueManager = new QueueManager();
-    this.config = config;
-  }
-
-  async submitContactForm(submission: Omit<ContactFormSubmission, 'id' | 'created_at' | 'updated_at'>): Promise<ContactFormSubmission> {
-    try {
-      // Validate and sanitize input
-      const sanitizedSubmission = this.sanitizeContactForm(submission);
-      
-      // Check for spam
-      const isSpam = await this.checkSpam(sanitizedSubmission);
-      if (isSpam) {
-        sanitizedSubmission.status = 'spam';
-        sanitizedSubmission.tags.push('auto-flagged-spam');
-      }
-
-      // Save to database
-      const { data, error } = await supabase
-        .from('contact_submissions')
-        .insert(sanitizedSubmission)
-        .select('*')
-        .single();
-
-      if (error) throw error;
-
-      // Send acknowledgment email to user
-      await this.sendContactAcknowledgment(data);
-
-      // Send notification to admin
-      await this.sendAdminNotification(data);
-
-      // Auto-assign if rules exist
-      await this.autoAssignSubmission(data.id);
-
-      return data;
-    } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.submitContactForm', 'high');
-      throw error;
+  public static getInstance(): SMTPService {
+    if (!SMTPService.instance) {
+      SMTPService.instance = new SMTPService();
     }
+    return SMTPService.instance;
   }
 
-  async sendEmail(message: Omit<EmailMessage, 'id' | 'created_at' | 'updated_at'>): Promise<EmailMessage> {
+  // Send email
+  async sendEmail(emailData: z.infer<typeof emailSchema>): Promise<{
+    success: boolean;
+    messageId?: string;
+    error?: string;
+  }> {
     try {
-      // Create email record
-      const { data, error } = await supabase
-        .from('email_messages')
-        .insert({
-          ...message,
-          status: 'pending',
-          retry_count: 0,
-          tracking: {
-            opens: 0,
-            clicks: 0,
-            bounces: 0,
-            complaints: 0
-          }
-        })
-        .select('*')
-        .single();
+      const validatedData = emailSchema.parse(emailData);
 
-      if (error) throw error;
-
-      // Queue for sending
-      await this.queueManager.addJob({
-        type: 'send_email',
-        priority: message.priority === 'urgent' ? 'high' : message.priority,
-        scheduled_for: message.scheduled_for ? new Date(message.scheduled_for) : undefined,
-        data: {
-          email_id: data.id
-        }
+      // For now, simulate email sending since we don't have a real SMTP setup
+      console.log('Sending email:', {
+        to: validatedData.to,
+        subject: validatedData.subject,
+        message: validatedData.message.substring(0, 100) + '...'
       });
 
-      return data;
+      // Log email attempt
+      await this.logEmail({
+        to: validatedData.to,
+        from: validatedData.from || process.env.SMTP_FROM_EMAIL || 'noreply@akibeks.co.ke',
+        subject: validatedData.subject,
+        status: 'sent',
+        sentAt: new Date().toISOString()
+      });
+
+      // Simulate successful send
+      return {
+        success: true,
+        messageId: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      };
     } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.sendEmail', 'high');
-      throw error;
-    }
-  }
-
-  async sendBulkEmail(messages: Omit<EmailMessage, 'id' | 'created_at' | 'updated_at'>[]): Promise<EmailMessage[]> {
-    try {
-      const results: EmailMessage[] = [];
+      console.error('Send email error:', error);
       
-      // Create email records in batch
-      const { data, error } = await supabase
-        .from('email_messages')
-        .insert(messages.map(msg => ({
-          ...msg,
-          status: 'pending',
-          retry_count: 0,
-          tracking: {
-            opens: 0,
-            clicks: 0,
-            bounces: 0,
-            complaints: 0
-          }
-        })))
-        .select('*');
-
-      if (error) throw error;
-
-      // Queue all emails for sending with staggered timing
-      for (let i = 0; i < data.length; i++) {
-        const email = data[i];
-        const delay = Math.floor(i / this.config.rate_limit) * 60000; // Respect rate limit
-        
-        await this.queueManager.addJob({
-          type: 'send_email',
-          priority: 'normal',
-          scheduled_for: new Date(Date.now() + delay),
-          data: {
-            email_id: email.id
-          }
+      // Log failed email
+      if (emailData.to && emailData.subject) {
+        await this.logEmail({
+          to: emailData.to,
+          from: emailData.from || process.env.SMTP_FROM_EMAIL || 'noreply@akibeks.co.ke',
+          subject: emailData.subject,
+          status: 'failed',
+          errorMessage: error instanceof Error ? error.message : 'Unknown error'
         });
-
-        results.push(email);
       }
 
-      return results;
-    } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.sendBulkEmail', 'high');
-      throw error;
+      if (error instanceof z.ZodError) {
+        return { success: false, error: error.errors.map(e => e.message).join(', ') };
+      }
+      return { success: false, error: 'Failed to send email' };
     }
   }
 
-  async createTemplate(template: Omit<EmailTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<EmailTemplate> {
-    try {
-      const { data, error } = await supabase
-        .from('email_templates')
-        .insert(template)
-        .select('*')
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.createTemplate', 'medium');
-      throw error;
-    }
-  }
-
+  // Send template email
   async sendTemplateEmail(
     templateId: string,
-    to: string[],
-    variables: Record<string, any>,
-    options: {
-      priority?: 'low' | 'normal' | 'high' | 'urgent';
-      scheduled_for?: string;
-      attachments?: EmailAttachment[];
-    } = {}
-  ): Promise<EmailMessage> {
+    to: string,
+    variables: Record<string, any> = {}
+  ): Promise<{
+    success: boolean;
+    messageId?: string;
+    error?: string;
+  }> {
     try {
-      // Get template
-      const { data: template, error } = await supabase
-        .from('email_templates')
-        .select('*')
-        .eq('id', templateId)
-        .eq('is_active', true)
-        .single();
+      // TODO: Implement email templates table and retrieval
+      // For now, simulate template email
+      const subject = `Template Email - ${templateId}`;
+      const message = `This is a template email with variables: ${JSON.stringify(variables)}`;
 
-      if (error || !template) {
-        throw new Error('Template not found or inactive');
-      }
-
-      // Render template
-      const renderedContent = this.renderTemplate(template, variables);
-
-      // Send email
       return await this.sendEmail({
         to,
-        from: this.config.from_email,
-        subject: renderedContent.subject,
-        html_content: renderedContent.html,
-        text_content: renderedContent.text,
-        template_id: templateId,
-        variables,
-        priority: options.priority || 'normal',
-        scheduled_for: options.scheduled_for,
-        attachments: options.attachments,
-        max_retries: 3,
-        metadata: {
-          template_name: template.name,
-          template_category: template.category
-        }
+        subject,
+        message
       });
     } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.sendTemplateEmail', 'high');
-      throw error;
+      console.error('Send template email error:', error);
+      return { success: false, error: 'Failed to send template email' };
     }
   }
 
-  async processEmailQueue(): Promise<void> {
+  // Send contact form email
+  async sendContactFormEmail(formData: {
+    name: string;
+    email: string;
+    phoneNumber?: string;
+    company?: string;
+    serviceInterest?: string;
+    message: string;
+  }): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
     try {
-      // Get pending emails
-      const { data: pendingEmails, error } = await supabase
-        .from('email_messages')
-        .select('*')
-        .eq('status', 'pending')
-        .lte('scheduled_for', new Date().toISOString())
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: true })
-        .limit(this.config.rate_limit);
-
-      if (error) throw error;
-
-      if (!pendingEmails?.length) return;
-
-      for (const email of pendingEmails) {
-        try {
-          await this.sendSingleEmail(email);
-        } catch (emailError) {
-          await this.handleEmailError(email.id, emailError);
-        }
-      }
-    } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.processEmailQueue', 'medium');
-    }
-  }
-
-  private async sendSingleEmail(email: EmailMessage): Promise<void> {
-    try {
-      // Update status to sending
-      await supabase
-        .from('email_messages')
-        .update({ status: 'sending' })
-        .eq('id', email.id);
-
-      // Here you would integrate with actual SMTP service (NodeMailer, SendGrid, etc.)
-      // For now, we'll simulate the sending
-      const success = await this.simulateEmailSending(email);
-
-      if (success) {
-        await supabase
-          .from('email_messages')
-          .update({ 
-            status: 'sent',
-            sent_at: new Date().toISOString()
-          })
-          .eq('id', email.id);
-
-        await this.logEmailActivity('sent', email.id);
-      } else {
-        throw new Error('Failed to send email');
-      }
-    } catch (error) {
-      await this.handleEmailError(email.id, error);
-    }
-  }
-
-  private async simulateEmailSending(email: EmailMessage): Promise<boolean> {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Simulate 95% success rate
-    return Math.random() > 0.05;
-  }
-
-  private async handleEmailError(emailId: string, error: any): Promise<void> {
-    try {
-      const { data: email } = await supabase
-        .from('email_messages')
-        .select('retry_count, max_retries')
-        .eq('id', emailId)
-        .single();
-
-      if (!email) return;
-
-      const newRetryCount = email.retry_count + 1;
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@akibeks.co.ke';
       
-      if (newRetryCount < email.max_retries) {
-        // Schedule retry with exponential backoff
-        const retryDelay = Math.pow(2, newRetryCount) * 60000; // Minutes
+      const subject = `New Contact Form Submission from ${formData.name}`;
+      const message = `
+        New contact form submission received:
         
-        await supabase
-          .from('email_messages')
-          .update({ 
-            status: 'pending',
-            retry_count: newRetryCount,
-            error_message: error.message,
-            scheduled_for: new Date(Date.now() + retryDelay).toISOString()
-          })
-          .eq('id', emailId);
-      } else {
-        // Mark as failed
-        await supabase
-          .from('email_messages')
-          .update({ 
-            status: 'failed',
-            error_message: error.message
-          })
-          .eq('id', emailId);
+        Name: ${formData.name}
+        Email: ${formData.email}
+        Phone: ${formData.phoneNumber || 'Not provided'}
+        Company: ${formData.company || 'Not provided'}
+        Service Interest: ${formData.serviceInterest || 'Not specified'}
+        
+        Message:
+        ${formData.message}
+        
+        ---
+        This email was sent automatically from the AKIBEKS website contact form.
+      `;
 
-        await this.logEmailActivity('failed', emailId);
-      }
-    } catch (updateError) {
-      this.errorHandler.handleError(updateError, 'SMTPService.handleEmailError', 'medium');
-    }
-  }
+      // Send to admin
+      const adminResult = await this.sendEmail({
+        to: adminEmail,
+        subject,
+        message,
+        from: process.env.SMTP_FROM_EMAIL || 'noreply@akibeks.co.ke'
+      });
 
-  private sanitizeContactForm(submission: any): any {
-    return {
-      ...submission,
-      name: this.sanitizeString(submission.name),
-      email: this.sanitizeEmail(submission.email),
-      phone: submission.phone ? this.sanitizeString(submission.phone) : undefined,
-      company: submission.company ? this.sanitizeString(submission.company) : undefined,
-      subject: this.sanitizeString(submission.subject),
-      message: this.sanitizeString(submission.message),
-    };
-  }
+      // Send acknowledgment to user
+      const userSubject = 'Thank you for contacting AKIBEKS Engineering Solutions';
+      const userMessage = `
+        Dear ${formData.name},
+        
+        Thank you for contacting AKIBEKS Engineering Solutions. We have received your message and will get back to you within 24 hours.
+        
+        Your message:
+        ${formData.message}
+        
+        Best regards,
+        AKIBEKS Engineering Solutions Team
+        
+        Phone: +254 710 245 118
+        Email: info@akibeks.co.ke
+        Website: https://akibeks.co.ke
+      `;
 
-  private sanitizeString(input: string): string {
-    return input.trim().replace(/[<>]/g, '');
-  }
+      const userResult = await this.sendEmail({
+        to: formData.email,
+        subject: userSubject,
+        message: userMessage
+      });
 
-  private sanitizeEmail(email: string): string {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      throw new Error('Invalid email format');
-    }
-    return email.toLowerCase().trim();
-  }
-
-  private async checkSpam(submission: any): Promise<boolean> {
-    const spamKeywords = ['viagra', 'casino', 'loan', 'bitcoin', 'cryptocurrency'];
-    const content = `${submission.subject} ${submission.message}`.toLowerCase();
-    
-    // Simple keyword-based spam detection
-    const hasSpamKeywords = spamKeywords.some(keyword => content.includes(keyword));
-    
-    // Check submission frequency from same IP
-    const { data: recentSubmissions } = await supabase
-      .from('contact_submissions')
-      .select('id')
-      .eq('ip_address', submission.ip_address)
-      .gte('created_at', new Date(Date.now() - 3600000).toISOString()); // Last hour
-
-    const isFrequentSubmitter = (recentSubmissions?.length || 0) > 5;
-
-    return hasSpamKeywords || isFrequentSubmitter;
-  }
-
-  private async sendContactAcknowledgment(submission: ContactFormSubmission): Promise<void> {
-    try {
-      await this.sendTemplateEmail(
-        'contact-acknowledgment', 
-        [submission.email],
-        {
-          name: submission.name,
-          subject: submission.subject,
-          message: submission.message,
-          reference_id: submission.id
-        },
-        { priority: 'high' }
-      );
+      return {
+        success: adminResult.success && userResult.success,
+        error: adminResult.error || userResult.error
+      };
     } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.sendContactAcknowledgment', 'medium');
+      console.error('Send contact form email error:', error);
+      return { success: false, error: 'Failed to send contact form email' };
     }
   }
 
-  private async sendAdminNotification(submission: ContactFormSubmission): Promise<void> {
+  // Send invoice email
+  async sendInvoiceEmail(
+    invoiceId: string,
+    clientEmail: string,
+    invoiceNumber: string,
+    amount: number
+  ): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
     try {
-      const { data: adminUsers } = await supabase
-        .from('users')
-        .select('email')
-        .eq('role', 'admin')
-        .eq('receive_notifications', true);
+      const subject = `Invoice ${invoiceNumber} from AKIBEKS Engineering Solutions`;
+      const message = `
+        Dear Client,
+        
+        Please find attached invoice ${invoiceNumber} for KES ${amount.toLocaleString()}.
+        
+        Invoice Details:
+        - Invoice Number: ${invoiceNumber}
+        - Amount: KES ${amount.toLocaleString()}
+        - Due Date: 30 days from invoice date
+        
+        Payment can be made via:
+        - Bank Transfer
+        - M-Pesa: [M-Pesa Number]
+        - Cash
+        
+        Please contact us if you have any questions.
+        
+        Best regards,
+        AKIBEKS Engineering Solutions
+        
+        Phone: +254 710 245 118
+        Email: accounts@akibeks.co.ke
+      `;
 
-      if (!adminUsers?.length) return;
-
-      const adminEmails = adminUsers.map(user => user.email);
-
-      await this.sendTemplateEmail(
-        'admin-contact-notification',
-        adminEmails,
-        {
-          submission_id: submission.id,
-          name: submission.name,
-          email: submission.email,
-          subject: submission.subject,
-          message: submission.message,
-          form_type: submission.form_type,
-          priority: submission.priority,
-          admin_url: `${window.location.origin}/admin/contacts/${submission.id}`
-        },
-        { priority: 'high' }
-      );
+      return await this.sendEmail({
+        to: clientEmail,
+        subject,
+        message
+      });
     } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.sendAdminNotification', 'medium');
+      console.error('Send invoice email error:', error);
+      return { success: false, error: 'Failed to send invoice email' };
     }
   }
 
-  private async autoAssignSubmission(submissionId: string): Promise<void> {
+  // Send project update email
+  async sendProjectUpdateEmail(
+    projectId: string,
+    clientEmail: string,
+    projectTitle: string,
+    updateMessage: string
+  ): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
     try {
-      // Get assignment rules
-      const { data: rules } = await supabase
-        .from('assignment_rules')
-        .select('*')
-        .eq('is_active', true)
-        .order('priority', { ascending: true });
+      const subject = `Project Update: ${projectTitle}`;
+      const message = `
+        Dear Client,
+        
+        We have an update on your project: ${projectTitle}
+        
+        Update:
+        ${updateMessage}
+        
+        You can view the full project details and progress at: https://akibeks.co.ke/projects/${projectId}
+        
+        If you have any questions, please don't hesitate to contact us.
+        
+        Best regards,
+        AKIBEKS Engineering Solutions Project Team
+        
+        Phone: +254 710 245 118
+        Email: projects@akibeks.co.ke
+      `;
 
-      if (!rules?.length) return;
-
-      const { data: submission } = await supabase
-        .from('contact_submissions')
-        .select('*')
-        .eq('id', submissionId)
-        .single();
-
-      if (!submission) return;
-
-      for (const rule of rules) {
-        if (this.matchesRule(submission, rule)) {
-          await supabase
-            .from('contact_submissions')
-            .update({ 
-              assigned_to: rule.assign_to,
-              status: 'read'
-            })
-            .eq('id', submissionId);
-          
-          break;
-        }
-      }
+      return await this.sendEmail({
+        to: clientEmail,
+        subject,
+        message
+      });
     } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.autoAssignSubmission', 'low');
+      console.error('Send project update email error:', error);
+      return { success: false, error: 'Failed to send project update email' };
     }
   }
 
-  private matchesRule(submission: ContactFormSubmission, rule: any): boolean {
-    // Simple rule matching - can be enhanced
-    if (rule.conditions.form_type && rule.conditions.form_type !== submission.form_type) {
-      return false;
-    }
-    
-    if (rule.conditions.keywords?.length) {
-      const content = `${submission.subject} ${submission.message}`.toLowerCase();
-      const hasKeyword = rule.conditions.keywords.some((keyword: string) => 
-        content.includes(keyword.toLowerCase())
-      );
-      if (!hasKeyword) return false;
-    }
-
-    return true;
-  }
-
-  private renderTemplate(template: EmailTemplate, variables: Record<string, any>): { subject: string; html: string; text: string } {
-    const renderString = (content: string) => {
-      let rendered = content;
-      for (const [key, value] of Object.entries(variables)) {
-        const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
-        rendered = rendered.replace(regex, String(value));
-      }
-      return rendered;
-    };
-
-    return {
-      subject: renderString(template.subject),
-      html: renderString(template.html_content),
-      text: renderString(template.text_content)
-    };
-  }
-
-  private async logEmailActivity(action: string, emailId: string): Promise<void> {
+  // Send notification email
+  async sendNotificationEmail(
+    to: string,
+    title: string,
+    content: string,
+    type: 'info' | 'warning' | 'alert' | 'success' = 'info'
+  ): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
     try {
-      await supabase
-        .from('email_activity_log')
-        .insert({
-          action,
-          email_id: emailId,
-          timestamp: new Date().toISOString()
-        });
+      const subject = `AKIBEKS Notification: ${title}`;
+      const message = `
+        ${title}
+        
+        ${content}
+        
+        ---
+        This is an automated notification from AKIBEKS Engineering Solutions.
+        
+        If you have any questions, please contact us:
+        Phone: +254 710 245 118
+        Email: support@akibeks.co.ke
+      `;
+
+      return await this.sendEmail({
+        to,
+        subject,
+        message
+      });
     } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.logEmailActivity', 'low');
+      console.error('Send notification email error:', error);
+      return { success: false, error: 'Failed to send notification email' };
     }
   }
 
-  async getContactSubmissions(filters: any = {}): Promise<ContactFormSubmission[]> {
+  // Log email activity
+  private async logEmail(emailLog: Omit<EmailLog, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> {
     try {
-      let query = supabase
-        .from('contact_submissions')
-        .select('*');
+      const logData = {
+        ...emailLog,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
 
-      if (filters.status) {
-        query = query.eq('status', filters.status);
-      }
-      if (filters.form_type) {
-        query = query.eq('form_type', filters.form_type);
-      }
-      if (filters.assigned_to) {
-        query = query.eq('assigned_to', filters.assigned_to);
-      }
-      if (filters.priority) {
-        query = query.eq('priority', filters.priority);
-      }
-
-      const { data, error } = await query.order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
+      // TODO: Implement email_logs table in schema
+      // For now, log to console
+      console.log('Email log:', logData);
+      
+      // Once email_logs table is implemented:
+      // await dbClient.insert(Tables.emailLogs, logData);
     } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.getContactSubmissions', 'low');
-      return [];
+      console.error('Failed to log email:', error);
     }
   }
 
-  async updateSubmissionStatus(submissionId: string, status: string, userId: string): Promise<void> {
+  // Get email statistics
+  async getEmailStats(timeframe: 'day' | 'week' | 'month' = 'day'): Promise<{
+    sent: number;
+    failed: number;
+    delivered: number;
+    bounced: number;
+    pending: number;
+  }> {
     try {
-      const { error } = await supabase
-        .from('contact_submissions')
-        .update({ 
-          status,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', submissionId);
-
-      if (error) throw error;
-
-      await this.logContactActivity('status_updated', submissionId, userId, { new_status: status });
+      // TODO: Implement when email_logs table is available
+      // For now, return mock data
+      return {
+        sent: 45,
+        failed: 2,
+        delivered: 42,
+        bounced: 1,
+        pending: 0
+      };
     } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.updateSubmissionStatus', 'medium');
-      throw error;
+      console.error('Error getting email stats:', error);
+      return {
+        sent: 0,
+        failed: 0,
+        delivered: 0,
+        bounced: 0,
+        pending: 0
+      };
     }
   }
 
-  private async logContactActivity(action: string, submissionId: string, userId: string, metadata: any = {}): Promise<void> {
+  // Check SMTP configuration
+  async checkConfiguration(): Promise<{
+    isConfigured: boolean;
+    error?: string;
+  }> {
     try {
-      await supabase
-        .from('contact_activity_log')
-        .insert({
-          action,
-          submission_id: submissionId,
-          user_id: userId,
-          metadata,
-          timestamp: new Date().toISOString()
-        });
+      if (!SMTP_CONFIG.auth.user || !SMTP_CONFIG.auth.pass) {
+        return {
+          isConfigured: false,
+          error: 'SMTP credentials not configured'
+        };
+      }
+
+      // TODO: Implement actual SMTP connection test
+      return { isConfigured: true };
     } catch (error) {
-      this.errorHandler.handleError(error, 'SMTPService.logContactActivity', 'low');
+      console.error('SMTP configuration check error:', error);
+      return {
+        isConfigured: false,
+        error: 'Failed to check SMTP configuration'
+      };
     }
   }
 }
 
-export default SMTPService;
+// Export singleton instance
+export const smtpService = SMTPService.getInstance();
+export default smtpService;

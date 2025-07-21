@@ -1,5 +1,5 @@
-import { ErrorHandlingService, ErrorSeverity, ErrorCategory } from './error-handling';
-import { dbClient } from '../core/database';
+import { ErrorHandlingService, type ErrorSeverity, type ErrorCategory } from './error-handling';
+import { dbClient } from './db-client';
 
 export enum QueuePriority {
   CRITICAL = 1,

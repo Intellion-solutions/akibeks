@@ -35,7 +35,7 @@ import {
   X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { FileStorageManager } from "@/lib/file-storage";
+import { service as FileStorageManager } from "@/lib/file-storage";
 import { useAdmin } from "@/contexts/AdminContext";
 import AdminLogin from "@/components/AdminLogin";
 import AdminHeader from "@/components/AdminHeader";

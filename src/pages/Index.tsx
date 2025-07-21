@@ -38,7 +38,7 @@ import { Link } from 'react-router-dom';
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import SEOWrapper from "@/components/SEOWrapper";
-import DatabaseClient, { Tables } from "@/core/database/client";
+import { dbClient, Tables } from "@/core/database-client";
 import { formatDisplayAmount } from "@/lib/currency-utils";
 
 interface Project {
@@ -101,7 +101,7 @@ const Index = () => {
   const fetchData = async () => {
     try {
       // Fetch featured projects
-      const { data: projectsData, error: projectsError } = await DatabaseClient.select<Project>(
+      const projectsResult = await dbClient.select(
         Tables.projects,
         {
           filters: [{ column: 'featured', operator: 'eq', value: true }],
@@ -111,14 +111,14 @@ const Index = () => {
         }
       );
 
-      if (projectsError) {
-        console.error('Error fetching projects:', projectsError);
+      if (projectsResult.error) {
+        console.error('Error fetching projects:', projectsResult.error);
       } else {
-        setFeaturedProjects(projectsData || []);
+        setFeaturedProjects(projectsResult.data || []);
       }
 
       // Fetch services
-      const { data: servicesData, error: servicesError } = await DatabaseClient.select<Service>(
+      const servicesResult = await dbClient.select(
         Tables.services,
         {
           filters: [{ column: 'active', operator: 'eq', value: true }],
@@ -128,14 +128,14 @@ const Index = () => {
         }
       );
 
-      if (servicesError) {
-        console.error('Error fetching services:', servicesError);
+      if (servicesResult.error) {
+        console.error('Error fetching services:', servicesResult.error);
       } else {
-        setServices(servicesData || []);
+        setServices(servicesResult.data || []);
       }
 
       // Fetch testimonials
-      const { data: testimonialsData, error: testimonialsError } = await DatabaseClient.select<Testimonial>(
+      const testimonialsResult = await dbClient.select(
         Tables.testimonials,
         {
           filters: [
@@ -148,10 +148,10 @@ const Index = () => {
         }
       );
 
-      if (testimonialsError) {
-        console.error('Error fetching testimonials:', testimonialsError);
+      if (testimonialsResult.error) {
+        console.error('Error fetching testimonials:', testimonialsResult.error);
       } else {
-        setTestimonials(testimonialsData || []);
+        setTestimonials(testimonialsResult.data || []);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -163,7 +163,7 @@ const Index = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await DatabaseClient.insert(Tables.contactSubmissions, {
+      const result = await dbClient.insert(Tables.contactSubmissions, {
         name: contactForm.name,
         email: contactForm.email,
         phoneNumber: contactForm.phone,
@@ -175,7 +175,7 @@ const Index = () => {
         userAgent: navigator.userAgent
       });
 
-      if (error) throw error;
+      if (result.error) throw result.error;
 
       toast({
         title: "Message Sent Successfully!",

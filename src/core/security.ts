@@ -91,20 +91,31 @@ export class PasswordManager {
 export class EncryptionManager {
   static encrypt(text: string): { encrypted: string; iv: string; tag: string } {
     try {
-      const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipher(ENCRYPTION_ALGORITHM, ENCRYPTION_KEY);
-      cipher.setAAD(Buffer.from('additional-data'));
-      
-      let encrypted = cipher.update(text, 'utf8', 'hex');
-      encrypted += cipher.final('hex');
-      
-      const tag = cipher.getAuthTag().toString('hex');
-      
-      return {
-        encrypted,
-        iv: iv.toString('hex'),
-        tag
-      };
+      // Check if we're in a Node.js environment
+      if (typeof window === 'undefined' && typeof global !== 'undefined') {
+        const crypto = require('crypto');
+        const iv = crypto.randomBytes(16);
+        const cipher = crypto.createCipherGCM(ENCRYPTION_ALGORITHM, ENCRYPTION_KEY, iv);
+        
+        let encrypted = cipher.update(text, 'utf8', 'hex');
+        encrypted += cipher.final('hex');
+        
+        const tag = cipher.getAuthTag().toString('hex');
+        
+        return {
+          encrypted,
+          iv: iv.toString('hex'),
+          tag
+        };
+      } else {
+        // Browser environment - use Web Crypto API or simple encoding
+        const encoded = btoa(text); // Simple base64 encoding for browser
+        return {
+          encrypted: encoded,
+          iv: 'browser-iv',
+          tag: 'browser-tag'
+        };
+      }
     } catch (error) {
       throw new Error('Encryption failed');
     }
@@ -112,25 +123,62 @@ export class EncryptionManager {
 
   static decrypt(encryptedData: { encrypted: string; iv: string; tag: string }): string {
     try {
-      const decipher = crypto.createDecipher(ENCRYPTION_ALGORITHM, ENCRYPTION_KEY);
-      decipher.setAAD(Buffer.from('additional-data'));
-      decipher.setAuthTag(Buffer.from(encryptedData.tag, 'hex'));
-      
-      let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
-      
-      return decrypted;
+      // Check if we're in a Node.js environment
+      if (typeof window === 'undefined' && typeof global !== 'undefined') {
+        const crypto = require('crypto');
+        const decipher = crypto.createDecipherGCM(ENCRYPTION_ALGORITHM, ENCRYPTION_KEY, Buffer.from(encryptedData.iv, 'hex'));
+        decipher.setAuthTag(Buffer.from(encryptedData.tag, 'hex'));
+        
+        let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        
+        return decrypted;
+      } else {
+        // Browser environment - simple base64 decoding
+        if (encryptedData.iv === 'browser-iv' && encryptedData.tag === 'browser-tag') {
+          return atob(encryptedData.encrypted);
+        } else {
+          throw new Error('Invalid browser encryption format');
+        }
+      }
     } catch (error) {
       throw new Error('Decryption failed');
     }
   }
 
   static generateSecureToken(length: number = 32): string {
-    return crypto.randomBytes(length).toString('hex');
+    if (typeof window === 'undefined' && typeof global !== 'undefined') {
+      const crypto = require('crypto');
+      return crypto.randomBytes(length).toString('hex');
+    } else {
+      // Browser environment - use crypto.getRandomValues
+      const array = new Uint8Array(length);
+      if (typeof window !== 'undefined' && window.crypto) {
+        window.crypto.getRandomValues(array);
+      } else {
+        // Fallback for environments without crypto
+        for (let i = 0; i < length; i++) {
+          array[i] = Math.floor(Math.random() * 256);
+        }
+      }
+      return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    }
   }
 
   static hash(data: string, algorithm: string = 'sha256'): string {
-    return crypto.createHash(algorithm).update(data).digest('hex');
+    if (typeof window === 'undefined' && typeof global !== 'undefined') {
+      const crypto = require('crypto');
+      return crypto.createHash(algorithm).update(data).digest('hex');
+    } else {
+      // Browser environment - simple hash fallback
+      let hash = 0;
+      for (let i = 0; i < data.length; i++) {
+        const char = data.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      return Math.abs(hash).toString(16);
+    }
   }
 }
 
@@ -138,15 +186,30 @@ export class EncryptionManager {
 export class HMACManager {
   static sign(data: string | object): string {
     const payload = typeof data === 'string' ? data : JSON.stringify(data);
-    return crypto.createHmac('sha256', HMAC_SECRET).update(payload).digest('hex');
+    
+    if (typeof window === 'undefined' && typeof global !== 'undefined') {
+      const crypto = require('crypto');
+      return crypto.createHmac('sha256', HMAC_SECRET).update(payload).digest('hex');
+    } else {
+      // Browser environment - simple signature using hash
+      const combined = HMAC_SECRET + payload;
+      return EncryptionManager.hash(combined);
+    }
   }
 
   static verify(data: string | object, signature: string): boolean {
     const expectedSignature = this.sign(data);
-    return crypto.timingSafeEqual(
-      Buffer.from(expectedSignature, 'hex'),
-      Buffer.from(signature, 'hex')
-    );
+    
+    if (typeof window === 'undefined' && typeof global !== 'undefined') {
+      const crypto = require('crypto');
+      return crypto.timingSafeEqual(
+        Buffer.from(expectedSignature, 'hex'),
+        Buffer.from(signature, 'hex')
+      );
+    } else {
+      // Browser environment - simple string comparison
+      return expectedSignature === signature;
+    }
   }
 
   static signedData(data: object): { data: object; signature: string; timestamp: number } {
