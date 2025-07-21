@@ -1,21 +1,17 @@
 import { drizzle, PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { DATABASE_CONFIG } from '../../config.js';
 import * as schema from './schema';
 
-// Create connection pool with configuration from config.js
-const connectionString = `postgresql://${DATABASE_CONFIG.user}:${DATABASE_CONFIG.password}@${DATABASE_CONFIG.host}:${DATABASE_CONFIG.port}/${DATABASE_CONFIG.database}`;
+// Simple database configuration from environment variables
+const DATABASE_URL = process.env.DATABASE_URL || 
+  `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASS || 'password'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'akibeks_db'}`;
 
-const sql = postgres(connectionString, {
-  max: DATABASE_CONFIG.pool.max,
-  idle_timeout: DATABASE_CONFIG.pool.idleTimeoutMillis,
-  connect_timeout: DATABASE_CONFIG.pool.connectionTimeoutMillis,
-  ssl: DATABASE_CONFIG.ssl.require ? {
-    rejectUnauthorized: DATABASE_CONFIG.ssl.rejectUnauthorized,
-    ca: DATABASE_CONFIG.ssl.ca,
-    cert: DATABASE_CONFIG.ssl.cert,
-    key: DATABASE_CONFIG.ssl.key,
-  } : false,
+// Create connection with simplified configuration
+const sql = postgres(DATABASE_URL, {
+  max: parseInt(process.env.DB_POOL_MAX || '10'),
+  idle_timeout: parseInt(process.env.DB_IDLE_TIMEOUT || '30'),
+  connect_timeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '10'),
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
 // Initialize Drizzle with the connection and schema
@@ -25,9 +21,10 @@ export const db: PostgresJsDatabase<typeof schema> = drizzle(sql, { schema });
 export async function checkDatabaseConnection(): Promise<boolean> {
   try {
     await sql`SELECT 1`;
+    console.log('✅ Database connection successful');
     return true;
   } catch (error) {
-    console.error('Database connection failed:', error);
+    console.error('❌ Database connection failed:', error);
     return false;
   }
 }
@@ -45,4 +42,5 @@ export async function closeDatabaseConnection(): Promise<void> {
 // Export the raw SQL connection for advanced usage
 export { sql };
 
+// Export default database instance
 export default db;

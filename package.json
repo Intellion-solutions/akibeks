@@ -18,7 +18,9 @@
     "db:studio": "drizzle-kit studio",
     "db:drop": "drizzle-kit drop",
     "db:check": "drizzle-kit check",
-    "db:up": "drizzle-kit up"
+    "db:up": "drizzle-kit up",
+    "db:setup": "node scripts/setup-database.js",
+    "db:test": "node scripts/setup-database.js --test-only"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",

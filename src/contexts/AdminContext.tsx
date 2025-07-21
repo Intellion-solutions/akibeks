@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { dbClient } from '@/core/database-client';
+import { clientDb as dbClient } from '@/lib/client-db';
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
