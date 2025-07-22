@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useToast } from "@/hooks/use-toast";
+import { db, User as DatabaseUser, withFallback } from '@/lib/database';
 
 interface User {
   id: string;
@@ -66,28 +67,51 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
-      // Simple authentication check (in production, this would be an API call)
-      if (email === 'admin@akibeks.co.ke' && password === 'admin123') {
-        const userData: User = {
-          id: '1',
-          email: email,
-          firstName: 'Admin',
-          lastName: 'User',
-          role: 'admin',
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          lastLoginAt: new Date().toISOString(),
-        };
+      // Try real authentication first, fallback to demo credentials
+      const result = await withFallback(
+        () => db.authenticate(email, password),
+        // Demo fallback
+        email === 'admin@akibeks.co.ke' && password === 'admin123' 
+          ? {
+              user: {
+                id: '1',
+                email: email,
+                firstName: 'Admin',
+                lastName: 'User',
+                role: 'admin' as const,
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+              token: 'demo-token'
+            }
+          : null
+      );
 
-        setUser(userData);
-        localStorage.setItem('admin_token', 'authenticated');
-        localStorage.setItem('admin_user', JSON.stringify(userData));
-        
-        await refreshStats();
-        return true;
-      } else {
+      if (!result.success || !result.data) {
         throw new Error('Invalid credentials');
       }
+
+      const { user: dbUser, token } = result.data;
+      
+      // Convert database user to local user format
+      const userData: User = {
+        id: dbUser.id,
+        email: dbUser.email,
+        firstName: dbUser.firstName,
+        lastName: dbUser.lastName,
+        role: dbUser.role,
+        isActive: dbUser.isActive,
+        createdAt: dbUser.createdAt,
+        lastLoginAt: new Date().toISOString(),
+      };
+
+      setUser(userData);
+      localStorage.setItem('admin_token', token);
+      localStorage.setItem('admin_user', JSON.stringify(userData));
+      
+      await refreshStats();
+      return true;
     } catch (error) {
       console.error('Login error:', error);
       toast({
@@ -109,15 +133,31 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const refreshStats = async () => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Mock stats update
-      setStats(prev => ({
-        ...prev,
-        totalProjects: prev.totalProjects + Math.floor(Math.random() * 3),
-        activeProjects: prev.activeProjects + Math.floor(Math.random() * 2),
-      }));
+      const result = await withFallback(
+        () => db.getDashboardStats(),
+        {
+          totalProjects: 24,
+          activeProjects: 12,
+          completedProjects: 8,
+          totalUsers: 45,
+          totalRevenue: 125000000,
+          monthlyRevenue: 4100000,
+        }
+      );
+
+      if (result.success && result.data) {
+        setStats({
+          totalProjects: result.data.totalProjects,
+          activeProjects: result.data.activeProjects,
+          completedProjects: result.data.completedProjects,
+          totalClients: result.data.totalUsers,
+          totalRevenue: result.data.totalRevenue,
+          pendingTasks: 18, // These would come from a separate endpoint
+          completedTasks: 156,
+          overdueProjects: 3,
+          monthlyRevenue: result.data.monthlyRevenue,
+        });
+      }
     } catch (error) {
       console.error('Error refreshing stats:', error);
     }

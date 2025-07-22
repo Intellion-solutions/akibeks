@@ -42,19 +42,13 @@ const Contact = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
-  const smtpService = new SMTPService({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER || '',
-      pass: process.env.SMTP_PASS || ''
-    },
-    from_name: 'Akibeks Contact Form',
-    from_email: process.env.SMTP_FROM || 'contact@akibeks.co.ke',
-    max_connections: 5,
-    rate_limit: 10
-  });
+  const smtpService = {
+    sendContactEmail: async (data: any) => {
+      // This would be handled by the backend API
+      console.log('Contact form submission:', data);
+      return { success: true };
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

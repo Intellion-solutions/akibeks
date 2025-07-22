@@ -43,6 +43,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import SEOHead from "@/components/SEO/SEOHead";
+import { db, withFallback } from '@/lib/database';
 
 // Types
 interface DashboardStats {

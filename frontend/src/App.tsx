@@ -27,7 +27,7 @@ const AdminLogin = React.lazy(() => import('@/pages/admin/AdminLogin'));
 const AdminDashboard = React.lazy(() => import('@/pages/admin/AdminDashboard'));
 const AdminProjects = React.lazy(() => import('@/pages/admin/AdminProjects'));
 const AdminServices = React.lazy(() => import('@/pages/admin/AdminServices'));
-const AdminUsers = React.lazy(() => import('@/pages/admin/AdminUsers'));
+// AdminUsers component removed
 const AdminSettings = React.lazy(() => import('@/pages/admin/AdminSettings'));
 const AdminSEO = React.lazy(() => import('@/pages/admin/AdminSEO'));
 
@@ -97,7 +97,7 @@ function App() {
                 <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                 <Route path="/admin/projects" element={<AdminRoute><AdminProjects /></AdminRoute>} />
                 <Route path="/admin/services" element={<AdminRoute><AdminServices /></AdminRoute>} />
-                <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+                {/* AdminUsers route removed */}
                 <Route path="/admin/seo" element={<AdminRoute><AdminSEO /></AdminRoute>} />
                 <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
                 

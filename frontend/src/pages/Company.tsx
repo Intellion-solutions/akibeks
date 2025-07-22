@@ -18,7 +18,7 @@ import {
   Heart,
   Shield,
   Lightbulb,
-  Handshake
+  Heart
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 
@@ -75,7 +75,7 @@ const Company = () => {
       description: 'We continuously innovate and improve our platform to stay ahead of industry trends and client needs.'
     },
     {
-      icon: Handshake,
+      icon: Heart,
       title: 'Collaboration',
       description: 'We believe in the power of teamwork and collaboration, both internally and with our clients.'
     }

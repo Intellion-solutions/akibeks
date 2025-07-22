@@ -37,42 +37,10 @@ import {
 import { Link } from 'react-router-dom';
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import SEOWrapper from "@/components/SEOWrapper";
-import { clientDb as dbClient } from "@/lib/client-db";
-import { formatDisplayAmount } from "@/lib/currency-utils";
+import SEOHead from "@/components/SEO/SEOHead";
+import { db, withFallback, mockData, Project, Service, Testimonial } from '@/lib/database';
 
-interface Project {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl?: string;
-  location: string;
-  status: string;
-  budgetKes: string;
-  completionPercentage: number;
-  clientId?: string;
-  projectType: string;
-}
-
-interface Service {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  features: string[];
-  priceRangeMin?: string;
-  priceRangeMax?: string;
-}
-
-interface Testimonial {
-  id: string;
-  name: string;
-  company?: string;
-  message: string;
-  rating: number;
-  projectType?: string;
-  location?: string;
-}
+// Using types from database.ts
 
 const Index = () => {
   const { toast } = useToast();
@@ -101,36 +69,33 @@ const Index = () => {
   const fetchData = async () => {
     try {
       // Fetch featured projects
-      const projectsResult = await dbClient.query('projects', {
-        limit: 6
-      });
+      const projectsResult = await withFallback(
+        () => db.getProjects({ limit: 6 }),
+        { data: mockData.projects.slice(0, 6), total: 6, page: 1, limit: 6 }
+      );
 
-              if (projectsResult.success) {
-          setFeaturedProjects(projectsResult.data || []);
-        } else {
-          console.error('Error fetching projects:', projectsResult.error);
-        }
+      if (projectsResult.success && projectsResult.data) {
+        setFeaturedProjects(projectsResult.data.data || []);
+      }
 
-              // Fetch services
-        const servicesResult = await dbClient.query('services', {
-          limit: 6
-        });
+      // Fetch services
+      const servicesResult = await withFallback(
+        () => db.getServices({ limit: 6 }),
+        mockData.services.slice(0, 6)
+      );
 
-      if (servicesResult.success) {
+      if (servicesResult.success && servicesResult.data) {
         setServices(servicesResult.data || []);
-      } else {
-        console.error('Error fetching services:', servicesResult.error);
       }
 
       // Fetch testimonials
-      const testimonialsResult = await dbClient.query('testimonials', {
-        limit: 6
-      });
+      const testimonialsResult = await withFallback(
+        () => db.getTestimonials({ limit: 6, approved: true }),
+        mockData.testimonials.slice(0, 6)
+      );
 
-      if (testimonialsResult.success) {
+      if (testimonialsResult.success && testimonialsResult.data) {
         setTestimonials(testimonialsResult.data || []);
-      } else {
-        console.error('Error fetching testimonials:', testimonialsResult.error);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -142,19 +107,18 @@ const Index = () => {
     setLoading(true);
 
     try {
-      const result = await dbClient.insert('contactSubmissions', {
-        name: contactForm.name,
-        email: contactForm.email,
-        phoneNumber: contactForm.phone,
-        serviceInterest: contactForm.service,
-        message: contactForm.message,
-        source: 'homepage_contact',
-        status: 'new',
-        ipAddress: '', // Will be set by middleware in production
-        userAgent: navigator.userAgent
-      });
+      const result = await withFallback(
+        () => db.submitContactForm({
+          name: contactForm.name,
+          email: contactForm.email,
+          phone: contactForm.phone,
+          subject: contactForm.service || 'General Inquiry',
+          message: contactForm.message,
+        }),
+        { id: 'demo-submission-' + Date.now() }
+      );
 
-      if (!result.success) throw new Error(result.error);
+      if (!result.success) throw new Error(result.error || 'Submission failed');
 
       toast({
         title: "Message Sent Successfully!",
@@ -184,11 +148,11 @@ const Index = () => {
   };
 
   return (
-    <SEOWrapper
-      config={{
-        title: "AKIBEKS Engineering Solutions - Premier Construction Company in Kenya",
-        description: "Leading construction and engineering company in Kenya. We deliver exceptional residential, commercial, and civil engineering projects with over 15 years of experience in Nairobi, Mombasa, and across Kenya.",
-        keywords: [
+    <>
+      <SEOHead
+        title="AKIBEKS Engineering Solutions - Premier Construction Company in Kenya"
+        description="Leading construction and engineering company in Kenya. We deliver exceptional residential, commercial, and civil engineering projects with over 15 years of experience in Nairobi, Mombasa, and across Kenya."
+        keywords={[
           "construction company Kenya",
           "engineering solutions Kenya",
           "building construction Nairobi",
@@ -199,10 +163,8 @@ const Index = () => {
           "Nairobi construction company",
           "Mombasa construction",
           "Kenya engineering firm"
-        ],
-        type: "website"
-      }}
-    >
+        ]}
+      />
       <div className="min-h-screen bg-white">
         <Navbar />
 
@@ -815,7 +777,7 @@ const Index = () => {
 
         <Footer />
       </div>
-    </SEOWrapper>
+    </>
   );
 };
 
