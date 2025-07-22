@@ -1,748 +1,758 @@
 import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { 
-  Plus, 
-  Search, 
-  Star, 
-  Eye, 
+  Building2,
+  Plus,
+  Search,
+  Filter,
   Edit,
   Trash2,
-  Calendar,
+  Eye,
+  Calendar as CalendarIcon,
   MapPin,
-  Building2,
   DollarSign,
   Users,
   Clock,
-  TrendingUp,
-  AlertTriangle,
   CheckCircle,
-  Filter,
+  AlertCircle,
   Download,
+  Upload,
   MoreHorizontal,
+  Star,
+  TrendingUp,
   Target,
-  PieChart,
-  BarChart3,
-  Activity
+  FileText,
+  Mail,
+  Phone
 } from "lucide-react";
-import { db } from "@/lib/db-client";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useAdmin } from "@/contexts/AdminContext";
-import AdminLogin from "@/components/AdminLogin";
-import AdminHeader from "@/components/AdminHeader";
+import { clientDb } from "@/lib/client-db";
+import { formatDisplayAmount } from "@/lib/currency-utils";
 
 interface Project {
   id: string;
-  name: string;
+  title: string;
   description: string;
-  status: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  client_name: string;
-  manager_name: string;
+  category: string;
+  status: 'planning' | 'in_progress' | 'completed' | 'on_hold' | 'cancelled';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  clientId: string;
+  clientName: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  location: string;
+  startDate: Date;
+  estimatedEndDate: Date;
+  actualEndDate?: Date;
   budget: number;
-  spent_amount: number;
-  start_date: string;
-  end_date: string;
-  completion_percentage: number;
-  team_members?: number;
-  tasks_total?: number;
-  tasks_completed?: number;
-  created_at: string;
+  actualCost?: number;
+  progress: number;
+  teamSize: number;
+  projectManager: string;
+  services: string[];
+  tags: string[];
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const AdminProjects = () => {
-  const { toast } = useToast();
-  const { isAuthenticated } = useAdmin();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [filterPriority, setFilterPriority] = useState("all");
-  const [showCreateProject, setShowCreateProject] = useState(false);
-  const [showEditProject, setShowEditProject] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [currentTab, setCurrentTab] = useState("overview");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [newProject, setNewProject] = useState<Partial<Project>>({});
+  const [editProject, setEditProject] = useState<Partial<Project>>({});
+  const { toast } = useToast();
 
-  const [newProject, setNewProject] = useState({
-    name: "",
-    description: "",
-    status: "planning" as const,
-    priority: "medium" as const,
-    client_name: "",
-    manager_name: "",
-    budget: "",
-    start_date: "",
-    end_date: ""
-  });
-
-  const [stats, setStats] = useState({
-    total: 0,
-    active: 0,
-    completed: 0,
-    on_hold: 0,
-    planning: 0,
-    total_budget: 0,
-    spent_budget: 0,
-    avg_completion: 0
-  });
-
-  if (!isAuthenticated) {
-    return <AdminLogin />;
-  }
+  // Mock data for projects
+  const mockProjects: Project[] = [
+    {
+      id: '1',
+      title: 'Nairobi CBD Office Complex',
+      description: 'A modern 15-story office building featuring sustainable design, smart building technology, and premium finishes.',
+      category: 'Commercial',
+      status: 'completed',
+      priority: 'high',
+      clientId: '1',
+      clientName: 'Nairobi Business Park Ltd',
+      clientEmail: 'info@nairobibusinesspark.co.ke',
+      clientPhone: '+254 700 123 456',
+      location: 'Nairobi CBD, Kenya',
+      startDate: new Date('2023-01-15'),
+      estimatedEndDate: new Date('2024-06-30'),
+      actualEndDate: new Date('2024-06-15'),
+      budget: 850000000,
+      actualCost: 820000000,
+      progress: 100,
+      teamSize: 45,
+      projectManager: 'John Kamau',
+      services: ['Architectural Design', 'Structural Engineering', 'MEP Systems', 'Project Management'],
+      tags: ['LEED Certified', 'Smart Building', 'High-rise'],
+      notes: 'Project completed ahead of schedule with excellent client satisfaction.',
+      createdAt: new Date('2022-12-01'),
+      updatedAt: new Date('2024-06-15')
+    },
+    {
+      id: '2',
+      title: 'Westlands Residential Estate',
+      description: 'Luxury residential development with 120 units featuring modern amenities and green spaces.',
+      category: 'Residential',
+      status: 'in_progress',
+      priority: 'high',
+      clientId: '2',
+      clientName: 'Westlands Development Co.',
+      clientEmail: 'projects@westlandsdev.co.ke',
+      clientPhone: '+254 722 345 678',
+      location: 'Westlands, Nairobi',
+      startDate: new Date('2024-03-01'),
+      estimatedEndDate: new Date('2025-12-31'),
+      budget: 1200000000,
+      progress: 35,
+      teamSize: 32,
+      projectManager: 'Mary Wanjiku',
+      services: ['Master Planning', 'Architectural Design', 'Infrastructure Design', 'Landscaping'],
+      tags: ['Gated Community', 'Luxury', 'Green Building'],
+      notes: 'Phase 1 foundation work completed. Moving to superstructure.',
+      createdAt: new Date('2024-01-15'),
+      updatedAt: new Date('2024-11-01')
+    },
+    {
+      id: '3',
+      title: 'Mombasa Port Expansion',
+      description: 'Infrastructure development project to expand port capacity and improve logistics efficiency.',
+      category: 'Infrastructure',
+      status: 'planning',
+      priority: 'critical',
+      clientId: '3',
+      clientName: 'Kenya Ports Authority',
+      clientEmail: 'engineering@kpa.co.ke',
+      clientPhone: '+254 733 456 789',
+      location: 'Mombasa, Kenya',
+      startDate: new Date('2024-08-01'),
+      estimatedEndDate: new Date('2027-03-31'),
+      budget: 2500000000,
+      progress: 15,
+      teamSize: 68,
+      projectManager: 'Peter Ochieng',
+      services: ['Feasibility Study', 'Structural Engineering', 'Marine Engineering', 'Environmental Impact Assessment'],
+      tags: ['Port Infrastructure', 'Marine Engineering', 'Government Project'],
+      notes: 'Environmental impact assessment in progress. Awaiting regulatory approvals.',
+      createdAt: new Date('2024-06-01'),
+      updatedAt: new Date('2024-10-15')
+    }
+  ];
 
   useEffect(() => {
+    const fetchProjects = async () => {
+      setLoading(true);
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setProjects(mockProjects);
+        setFilteredProjects(mockProjects);
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load projects",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchProjects();
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
-    updateStats();
-  }, [projects]);
+    let filtered = projects;
 
-  const fetchProjects = async () => {
-    setLoading(true);
-    try {
-      // Simulate API call with mock data
-      const mockProjects: Project[] = [
-        {
-          id: '1',
-          name: 'E-commerce Website Redesign',
-          description: 'Complete redesign of the company e-commerce platform with modern UI/UX and enhanced functionality.',
-          status: 'active',
-          priority: 'high',
-          client_name: 'TechShop Inc.',
-          manager_name: 'John Smith',
-          budget: 75000,
-          spent_amount: 45000,
-          start_date: '2024-01-15',
-          end_date: '2024-05-15',
-          completion_percentage: 60,
-          team_members: 8,
-          tasks_total: 45,
-          tasks_completed: 27,
-          created_at: '2024-01-10T10:30:00Z'
-        },
-        {
-          id: '2',
-          name: 'Mobile App Development',
-          description: 'Native iOS and Android mobile application for customer engagement and sales.',
-          status: 'planning',
-          priority: 'medium',
-          client_name: 'StartupCorp',
-          manager_name: 'Sarah Johnson',
-          budget: 120000,
-          spent_amount: 5000,
-          start_date: '2024-03-01',
-          end_date: '2024-09-01',
-          completion_percentage: 5,
-          team_members: 6,
-          tasks_total: 62,
-          tasks_completed: 3,
-          created_at: '2024-02-01T14:20:00Z'
-        },
-        {
-          id: '3',
-          name: 'Data Analytics Platform',
-          description: 'Business intelligence platform with real-time analytics and reporting capabilities.',
-          status: 'active',
-          priority: 'urgent',
-          client_name: 'DataCorp LLC',
-          manager_name: 'Michael Chen',
-          budget: 200000,
-          spent_amount: 140000,
-          start_date: '2023-10-01',
-          end_date: '2024-04-01',
-          completion_percentage: 85,
-          team_members: 12,
-          tasks_total: 78,
-          tasks_completed: 66,
-          created_at: '2023-09-15T09:00:00Z'
-        },
-        {
-          id: '4',
-          name: 'Marketing Website',
-          description: 'Corporate marketing website with CMS integration and SEO optimization.',
-          status: 'completed',
-          priority: 'low',
-          client_name: 'Creative Agency',
-          manager_name: 'Emily Davis',
-          budget: 35000,
-          spent_amount: 32000,
-          start_date: '2023-11-01',
-          end_date: '2024-01-15',
-          completion_percentage: 100,
-          team_members: 4,
-          tasks_total: 28,
-          tasks_completed: 28,
-          created_at: '2023-10-20T16:45:00Z'
-        },
-        {
-          id: '5',
-          name: 'Inventory Management System',
-          description: 'Cloud-based inventory management system with barcode scanning and reporting.',
-          status: 'on_hold',
-          priority: 'medium',
-          client_name: 'RetailMax',
-          manager_name: 'David Wilson',
-          budget: 95000,
-          spent_amount: 25000,
-          start_date: '2024-01-01',
-          end_date: '2024-06-01',
-          completion_percentage: 25,
-          team_members: 5,
-          tasks_total: 38,
-          tasks_completed: 9,
-          created_at: '2023-12-15T11:30:00Z'
-        }
-      ];
-      
-      setProjects(mockProjects);
-      toast({
-        title: "Projects loaded",
-        description: "Project data has been successfully loaded.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load projects. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(project =>
+        project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        project.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        project.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        project.location.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(project => project.status === statusFilter);
+    }
+
+    // Category filter
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(project => project.category === categoryFilter);
+    }
+
+    // Priority filter
+    if (priorityFilter !== 'all') {
+      filtered = filtered.filter(project => project.priority === priorityFilter);
+    }
+
+    setFilteredProjects(filtered);
+  }, [projects, searchTerm, statusFilter, categoryFilter, priorityFilter]);
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'in_progress':
+        return <Clock className="h-4 w-4 text-blue-500" />;
+      case 'planning':
+        return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+      case 'on_hold':
+        return <AlertCircle className="h-4 w-4 text-orange-500" />;
+      case 'cancelled':
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  const updateStats = () => {
-    const total = projects.length;
-    const active = projects.filter(p => p.status === 'active').length;
-    const completed = projects.filter(p => p.status === 'completed').length;
-    const on_hold = projects.filter(p => p.status === 'on_hold').length;
-    const planning = projects.filter(p => p.status === 'planning').length;
-    const total_budget = projects.reduce((sum, p) => sum + p.budget, 0);
-    const spent_budget = projects.reduce((sum, p) => sum + p.spent_amount, 0);
-    const avg_completion = total > 0 ? Math.round(projects.reduce((sum, p) => sum + p.completion_percentage, 0) / total) : 0;
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'planning':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'on_hold':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
 
-    setStats({
-      total,
-      active,
-      completed,
-      on_hold,
-      planning,
-      total_budget,
-      spent_budget,
-      avg_completion
-    });
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'critical':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'high':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'low':
+        return 'bg-green-100 text-green-800 border-green-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
   };
 
   const handleCreateProject = async () => {
-    if (!newProject.name || !newProject.client_name) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
     try {
-      const project: Project = {
-        id: Date.now().toString(),
+      // Validate required fields
+      if (!newProject.title || !newProject.clientName || !newProject.budget) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all required fields",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const projectData = {
         ...newProject,
-        budget: parseFloat(newProject.budget) || 0,
-        spent_amount: 0,
-        completion_percentage: 0,
-        team_members: 0,
-        tasks_total: 0,
-        tasks_completed: 0,
-        created_at: new Date().toISOString()
-      };
+        id: Date.now().toString(),
+        progress: 0,
+        status: 'planning',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      } as Project;
 
-      setProjects(prev => [project, ...prev]);
-      setShowCreateProject(false);
-      setNewProject({
-        name: "",
-        description: "",
-        status: "planning",
-        priority: "medium",
-        client_name: "",
-        manager_name: "",
-        budget: "",
-        start_date: "",
-        end_date: ""
-      });
-
+      setProjects(prev => [...prev, projectData]);
+      setIsCreateDialogOpen(false);
+      setNewProject({});
+      
       toast({
         title: "Success",
-        description: "Project created successfully.",
+        description: "Project created successfully",
       });
     } catch (error) {
+      console.error('Error creating project:', error);
       toast({
         title: "Error",
-        description: "Failed to create project. Please try again.",
+        description: "Failed to create project",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleUpdateProject = async () => {
+  const handleEditProject = async () => {
     if (!selectedProject) return;
 
-    setLoading(true);
     try {
-      setProjects(prev => prev.map(project => 
-        project.id === selectedProject.id ? { ...selectedProject } : project
-      ));
-      setShowEditProject(false);
-      setSelectedProject(null);
+      const updatedProject = {
+        ...selectedProject,
+        ...editProject,
+        updatedAt: new Date()
+      };
 
+      setProjects(prev => 
+        prev.map(p => p.id === selectedProject.id ? updatedProject : p)
+      );
+      
+      setIsEditDialogOpen(false);
+      setSelectedProject(null);
+      setEditProject({});
+      
       toast({
         title: "Success",
-        description: "Project updated successfully.",
+        description: "Project updated successfully",
       });
     } catch (error) {
+      console.error('Error updating project:', error);
       toast({
         title: "Error",
-        description: "Failed to update project. Please try again.",
+        description: "Failed to update project",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleDeleteProject = async () => {
     if (!selectedProject) return;
 
-    setLoading(true);
     try {
-      setProjects(prev => prev.filter(project => project.id !== selectedProject.id));
-      setShowDeleteConfirm(false);
+      setProjects(prev => prev.filter(p => p.id !== selectedProject.id));
+      setIsDeleteDialogOpen(false);
       setSelectedProject(null);
-
+      
       toast({
         title: "Success",
-        description: "Project deleted successfully.",
+        description: "Project deleted successfully",
       });
     } catch (error) {
+      console.error('Error deleting project:', error);
       toast({
         title: "Error",
-        description: "Failed to delete project. Please try again.",
+        description: "Failed to delete project",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  const filteredProjects = projects.filter(project => {
-    const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.manager_name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || project.status === filterStatus;
-    const matchesPriority = filterPriority === "all" || project.priority === filterPriority;
-    
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'completed': return 'bg-blue-100 text-blue-800';
-      case 'on_hold': return 'bg-yellow-100 text-yellow-800';
-      case 'planning': return 'bg-purple-100 text-purple-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getPriorityBadgeColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800';
-      case 'high': return 'bg-orange-100 text-orange-800';
-      case 'medium': return 'bg-blue-100 text-blue-800';
-      case 'low': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminHeader />
-      
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Header Section */}
-          <div className="mb-8">
-            <div className="sm:flex sm:items-center sm:justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Project Management</h1>
-                <p className="mt-2 text-sm text-gray-700">
-                  Manage and monitor all projects across your organization.
-                </p>
-              </div>
-              
-              <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-                <Button 
-                  onClick={() => setShowCreateProject(true)}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Project
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Building2 className="h-8 w-8 text-blue-400" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Total Projects</dt>
-                      <dd className="text-lg font-medium text-gray-900">{stats.total}</dd>
-                    </dl>
-                  </div>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Project Management</h1>
+          <p className="text-gray-600 mt-1">Manage and track all engineering projects</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          <Button variant="outline" size="sm">
+            <Upload className="h-4 w-4 mr-2" />
+            Import
+          </Button>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                New Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create New Project</DialogTitle>
+                <DialogDescription>
+                  Add a new engineering project to the system.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Project Title *</Label>
+                  <Input
+                    id="title"
+                    value={newProject.title || ''}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Enter project title"
+                  />
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Activity className="h-8 w-8 text-green-400" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Active Projects</dt>
-                      <dd className="text-lg font-medium text-gray-900">{stats.active}</dd>
-                    </dl>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <DollarSign className="h-8 w-8 text-purple-400" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Total Budget</dt>
-                      <dd className="text-lg font-medium text-gray-900">{formatCurrency(stats.total_budget)}</dd>
-                    </dl>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Target className="h-8 w-8 text-orange-400" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Avg Completion</dt>
-                      <dd className="text-lg font-medium text-gray-900">{stats.avg_completion}%</dd>
-                    </dl>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Filters and Search */}
-          <Card className="mb-6">
-            <CardContent className="p-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      placeholder="Search projects by name, client, or manager..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue placeholder="Status" />
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select 
+                    value={newProject.category || ''} 
+                    onValueChange={(value) => setNewProject(prev => ({ ...prev, category: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="planning">Planning</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="on_hold">On Hold</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="Commercial">Commercial</SelectItem>
+                      <SelectItem value="Residential">Residential</SelectItem>
+                      <SelectItem value="Infrastructure">Infrastructure</SelectItem>
+                      <SelectItem value="Industrial">Industrial</SelectItem>
                     </SelectContent>
                   </Select>
-
-                  <Select value={filterPriority} onValueChange={setFilterPriority}>
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue placeholder="Priority" />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={newProject.description || ''}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Project description"
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientName">Client Name *</Label>
+                  <Input
+                    id="clientName"
+                    value={newProject.clientName || ''}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, clientName: e.target.value }))}
+                    placeholder="Client name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    value={newProject.location || ''}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, location: e.target.value }))}
+                    placeholder="Project location"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="budget">Budget (KES) *</Label>
+                  <Input
+                    id="budget"
+                    type="number"
+                    value={newProject.budget || ''}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, budget: Number(e.target.value) }))}
+                    placeholder="Project budget"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select 
+                    value={newProject.priority || 'medium'} 
+                    onValueChange={(value) => setNewProject(prev => ({ ...prev, priority: value as any }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Priority</SelectItem>
                       <SelectItem value="low">Low</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
                       <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
+                      <SelectItem value="critical">Critical</SelectItem>
                     </SelectContent>
                   </Select>
-
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Projects Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Projects ({filteredProjects.length})</span>
-                <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm">
-                    <Filter className="h-4 w-4 mr-2" />
-                    Advanced Filter
-                  </Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Project</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Progress</TableHead>
-                      <TableHead>Budget</TableHead>
-                      <TableHead>Timeline</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredProjects.map((project) => (
-                      <TableRow key={project.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium text-gray-900">{project.name}</div>
-                            <div className="text-sm text-gray-500">{project.manager_name}</div>
-                            <div className="text-sm text-gray-500 flex items-center mt-1">
-                              <Users className="h-3 w-3 mr-1" />
-                              {project.team_members} members
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <Building2 className="h-4 w-4 mr-2 text-gray-400" />
-                            <span className="text-sm text-gray-900">{project.client_name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusBadgeColor(project.status)}>
-                            {project.status.charAt(0).toUpperCase() + project.status.slice(1).replace('_', ' ')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getPriorityBadgeColor(project.priority)}>
-                            {project.priority.charAt(0).toUpperCase() + project.priority.slice(1)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="w-full">
-                            <div className="flex items-center justify-between text-sm mb-1">
-                              <span>{project.completion_percentage}%</span>
-                              <span className="text-gray-500">
-                                {project.tasks_completed}/{project.tasks_total} tasks
-                              </span>
-                            </div>
-                            <Progress value={project.completion_percentage} className="h-2" />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {formatCurrency(project.budget)}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              Spent: {formatCurrency(project.spent_amount)}
-                            </div>
-                            <div className="text-xs text-gray-400">
-                              {Math.round((project.spent_amount / project.budget) * 100)}% used
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <div className="flex items-center text-gray-900">
-                              <Calendar className="h-3 w-3 mr-1" />
-                              {new Date(project.start_date).toLocaleDateString()}
-                            </div>
-                            <div className="flex items-center text-gray-500 mt-1">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {new Date(project.end_date).toLocaleDateString()}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedProject(project);
-                                setShowEditProject(true);
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedProject(project);
-                                setShowDeleteConfirm(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateProject}>
+                  Create Project
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
-      </main>
+      </div>
 
-      {/* Create Project Dialog */}
-      <Dialog open={showCreateProject} onOpenChange={setShowCreateProject}>
-        <DialogContent className="sm:max-w-[600px]">
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col lg:flex-row gap-4 items-center">
+            <div className="flex items-center gap-2 text-gray-600">
+              <Filter className="h-5 w-5" />
+              <span className="font-medium">Filters:</span>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search projects..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-full sm:w-64"
+                />
+              </div>
+
+              {/* Status Filter */}
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="planning">Planning</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="on_hold">On Hold</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Category Filter */}
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="Commercial">Commercial</SelectItem>
+                  <SelectItem value="Residential">Residential</SelectItem>
+                  <SelectItem value="Infrastructure">Infrastructure</SelectItem>
+                  <SelectItem value="Industrial">Industrial</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Priority Filter */}
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="All Priorities" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priorities</SelectItem>
+                  <SelectItem value="critical">Critical</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Projects Grid */}
+      {filteredProjects.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Building2 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">No Projects Found</h3>
+            <p className="text-gray-500 mb-6">
+              {searchTerm || statusFilter !== 'all' || categoryFilter !== 'all' || priorityFilter !== 'all'
+                ? 'Try adjusting your search criteria or filters.'
+                : 'Get started by creating your first project.'}
+            </p>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Project
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredProjects.map((project) => (
+            <Card key={project.id} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge className={getStatusColor(project.status)}>
+                      {getStatusIcon(project.status)}
+                      {project.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </Badge>
+                    <Badge variant="outline" className={getPriorityColor(project.priority)}>
+                      {project.priority}
+                    </Badge>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedProject(project);
+                        setEditProject(project);
+                        setIsEditDialogOpen(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedProject(project);
+                        setIsDeleteDialogOpen(true);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+                <CardTitle className="text-lg line-clamp-1">{project.title}</CardTitle>
+                <CardDescription className="line-clamp-2">
+                  {project.description}
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                {/* Progress */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Progress</span>
+                    <span className="text-sm text-gray-600">{project.progress}%</span>
+                  </div>
+                  <Progress value={project.progress} className="h-2" />
+                </div>
+
+                {/* Project Details */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Users className="h-4 w-4" />
+                    <span>{project.clientName}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <MapPin className="h-4 w-4" />
+                    <span>{project.location}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <DollarSign className="h-4 w-4" />
+                    <span>{formatDisplayAmount(project.budget)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <CalendarIcon className="h-4 w-4" />
+                    <span>{format(project.estimatedEndDate, 'MMM dd, yyyy')}</span>
+                  </div>
+                </div>
+
+                {/* Services */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Services:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {project.services.slice(0, 2).map((service, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        {service}
+                      </Badge>
+                    ))}
+                    {project.services.length > 2 && (
+                      <Badge variant="secondary" className="text-xs">
+                        +{project.services.length - 2} more
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" size="sm" className="flex-1">
+                    <Eye className="h-4 w-4 mr-2" />
+                    View
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <FileText className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Mail className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create New Project</DialogTitle>
+            <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>
-              Create a new project with client information, budget, and timeline.
+              Update project information and settings.
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
+          {selectedProject && (
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Project Name *</Label>
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">Project Title</Label>
                 <Input
-                  id="name"
-                  value={newProject.name}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="E-commerce Platform"
+                  id="edit-title"
+                  value={editProject.title || ''}
+                  onChange={(e) => setEditProject(prev => ({ ...prev, title: e.target.value }))}
                 />
               </div>
-              <div>
-                <Label htmlFor="client">Client Name *</Label>
-                <Input
-                  id="client"
-                  value={newProject.client_name}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, client_name: e.target.value }))}
-                  placeholder="Tech Solutions Inc."
-                />
-              </div>
-            </div>
-            
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={newProject.description}
-                onChange={(e) => setNewProject(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Project description and requirements..."
-                rows={3}
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="manager">Project Manager</Label>
-                <Input
-                  id="manager"
-                  value={newProject.manager_name}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, manager_name: e.target.value }))}
-                  placeholder="John Smith"
-                />
-              </div>
-              <div>
-                <Label htmlFor="budget">Budget ($)</Label>
-                <Input
-                  id="budget"
-                  type="number"
-                  value={newProject.budget}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, budget: e.target.value }))}
-                  placeholder="50000"
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select value={newProject.status} onValueChange={(value) => setNewProject(prev => ({ ...prev, status: value as any }))}>
+              <div className="space-y-2">
+                <Label htmlFor="edit-status">Status</Label>
+                <Select 
+                  value={editProject.status || selectedProject.status} 
+                  onValueChange={(value) => setEditProject(prev => ({ ...prev, status: value as any }))}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="planning">Planning</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="on_hold">On Hold</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="on_hold">On Hold</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="priority">Priority</Label>
-                <Select value={newProject.priority} onValueChange={(value) => setNewProject(prev => ({ ...prev, priority: value as any }))}>
+              <div className="space-y-2">
+                <Label htmlFor="edit-progress">Progress (%)</Label>
+                <Input
+                  id="edit-progress"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editProject.progress || selectedProject.progress}
+                  onChange={(e) => setEditProject(prev => ({ ...prev, progress: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-priority">Priority</Label>
+                <Select 
+                  value={editProject.priority || selectedProject.priority} 
+                  onValueChange={(value) => setEditProject(prev => ({ ...prev, priority: value as any }))}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -750,203 +760,49 @@ const AdminProjects = () => {
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="start_date">Start Date</Label>
-                <Input
-                  id="start_date"
-                  type="date"
-                  value={newProject.start_date}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, start_date: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="end_date">End Date</Label>
-                <Input
-                  id="end_date"
-                  type="date"
-                  value={newProject.end_date}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, end_date: e.target.value }))}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setShowCreateProject(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateProject} disabled={loading}>
-              {loading ? "Creating..." : "Create Project"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Project Dialog */}
-      <Dialog open={showEditProject} onOpenChange={setShowEditProject}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
-            <DialogDescription>
-              Update project information and settings.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedProject && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="edit-name">Project Name *</Label>
-                  <Input
-                    id="edit-name"
-                    value={selectedProject.name}
-                    onChange={(e) => setSelectedProject(prev => prev ? ({ ...prev, name: e.target.value }) : null)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-client">Client Name *</Label>
-                  <Input
-                    id="edit-client"
-                    value={selectedProject.client_name}
-                    onChange={(e) => setSelectedProject(prev => prev ? ({ ...prev, client_name: e.target.value }) : null)}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="edit-description">Description</Label>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="edit-notes">Notes</Label>
                 <Textarea
-                  id="edit-description"
-                  value={selectedProject.description}
-                  onChange={(e) => setSelectedProject(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
+                  id="edit-notes"
+                  value={editProject.notes || selectedProject.notes || ''}
+                  onChange={(e) => setEditProject(prev => ({ ...prev, notes: e.target.value }))}
                   rows={3}
                 />
               </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="edit-manager">Project Manager</Label>
-                  <Input
-                    id="edit-manager"
-                    value={selectedProject.manager_name}
-                    onChange={(e) => setSelectedProject(prev => prev ? ({ ...prev, manager_name: e.target.value }) : null)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-budget">Budget ($)</Label>
-                  <Input
-                    id="edit-budget"
-                    type="number"
-                    value={selectedProject.budget}
-                    onChange={(e) => setSelectedProject(prev => prev ? ({ ...prev, budget: parseFloat(e.target.value) || 0 }) : null)}
-                  />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="edit-status">Status</Label>
-                  <Select value={selectedProject.status} onValueChange={(value) => setSelectedProject(prev => prev ? ({ ...prev, status: value as any }) : null)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="planning">Planning</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="on_hold">On Hold</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="edit-priority">Priority</Label>
-                  <Select value={selectedProject.priority} onValueChange={(value) => setSelectedProject(prev => prev ? ({ ...prev, priority: value as any }) : null)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="edit-start_date">Start Date</Label>
-                  <Input
-                    id="edit-start_date"
-                    type="date"
-                    value={selectedProject.start_date}
-                    onChange={(e) => setSelectedProject(prev => prev ? ({ ...prev, start_date: e.target.value }) : null)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-end_date">End Date</Label>
-                  <Input
-                    id="edit-end_date"
-                    type="date"
-                    value={selectedProject.end_date}
-                    onChange={(e) => setSelectedProject(prev => prev ? ({ ...prev, end_date: e.target.value }) : null)}
-                  />
-                </div>
-              </div>
             </div>
           )}
-
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setShowEditProject(false)}>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateProject} disabled={loading}>
-              {loading ? "Updating..." : "Update Project"}
+            <Button onClick={handleEditProject}>
+              Save Changes
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Project</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this project? This action cannot be undone and will remove all associated data.
+              Are you sure you want to delete "{selectedProject?.title}"? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          
-          {selectedProject && (
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-start space-x-3">
-                <AlertTriangle className="h-8 w-8 text-red-500 flex-shrink-0 mt-1" />
-                <div>
-                  <div className="font-medium text-gray-900">{selectedProject.name}</div>
-                  <div className="text-sm text-gray-500">{selectedProject.client_name}</div>
-                  <div className="text-sm text-gray-500">Budget: {formatCurrency(selectedProject.budget)}</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteProject} disabled={loading}>
-              {loading ? "Deleting..." : "Delete Project"}
+            <Button variant="destructive" onClick={handleDeleteProject}>
+              Delete Project
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

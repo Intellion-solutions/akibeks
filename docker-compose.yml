@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: akibeks-postgres
+    environment:
+      POSTGRES_DB: akibeks_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASS:-postgres123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - akibeks-network
+    restart: unless-stopped
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: akibeks-backend
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:${DB_PASS:-postgres123}@postgres:5432/akibeks_db
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: akibeks_db
+      DB_USER: postgres
+      DB_PASS: ${DB_PASS:-postgres123}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secure-jwt-secret-change-in-production}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    networks:
+      - akibeks-network
+    restart: unless-stopped
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  # Frontend (Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: akibeks-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    networks:
+      - akibeks-network
+    restart: unless-stopped
+    volumes:
+      - ./ssl:/etc/ssl/certs
+
+  # Redis (for caching and sessions)
+  redis:
+    image: redis:7-alpine
+    container_name: akibeks-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - akibeks-network
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  akibeks-network:
+    driver: bridge

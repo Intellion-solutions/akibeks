@@ -1,677 +1,623 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Users, 
-  FileText, 
-  DollarSign, 
-  TrendingUp, 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area
+} from 'recharts';
+import {
+  Building2,
+  Users,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Mail,
+  Phone,
   Calendar,
+  Clock,
   AlertCircle,
   CheckCircle,
-  Clock,
   Star,
-  Eye,
-  Plus,
-  BarChart3,
   Activity,
-  Shield,
-  Folder,
-  Building2,
-  Wrench,
-  AlertTriangle
+  FileText,
+  Settings,
+  Download,
+  Filter,
+  Search,
+  Bell,
+  BarChart3,
+  PieChart as PieChartIcon,
+  Target,
+  Award,
+  Briefcase,
+  MapPin,
+  Eye,
+  Edit,
+  Trash2,
+  Plus
 } from "lucide-react";
-import { supabase } from "@/lib/db-client";
+import { Link } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
-import AdminPageHeader from '@/components/admin/AdminPageHeader';
-import AdminHeader from "@/components/AdminHeader";
-import PWAInstaller from "@/components/PWAInstaller";
+import { clientDb } from "@/lib/client-db";
+import { formatDisplayAmount } from "@/lib/currency-utils";
 
 interface DashboardStats {
-  totalClients: number;
-  totalInvoices: number;
-  totalRevenue: number;
-  pendingInvoices: number;
-  overdueInvoices: number;
+  totalProjects: number;
   activeProjects: number;
   completedProjects: number;
-  totalTestimonials: number;
-  approvedTestimonials: number;
-  totalServices: number;
-  activeServices: number;
-  featuredServices: number;
-  totalProjectsShowcase: number;
-  featuredProjectsShowcase: number;
+  totalRevenue: number;
+  monthlyRevenue: number;
+  totalClients: number;
+  activeUsers: number;
+  pendingQuotes: number;
+  recentContacts: number;
+  averageProjectValue: number;
+  completionRate: number;
+  clientSatisfaction: number;
 }
 
 interface RecentActivity {
   id: string;
-  type: 'invoice' | 'project' | 'client' | 'testimonial';
+  type: 'project' | 'contact' | 'quote' | 'payment' | 'user';
   title: string;
   description: string;
-  date: string;
-  status?: string;
+  timestamp: string;
+  status: 'success' | 'warning' | 'error' | 'info';
+  user?: string;
 }
 
-const AdminDashboard: React.FC = () => {
-  const { toast } = useToast();
-  const navigate = useNavigate();
+interface ProjectMetrics {
+  name: string;
+  completed: number;
+  inProgress: number;
+  planned: number;
+}
+
+interface RevenueData {
+  month: string;
+  revenue: number;
+  projects: number;
+  target: number;
+}
+
+const AdminDashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
-    totalClients: 0,
-    totalInvoices: 0,
-    totalRevenue: 0,
-    pendingInvoices: 0,
-    overdueInvoices: 0,
+    totalProjects: 0,
     activeProjects: 0,
     completedProjects: 0,
-    totalTestimonials: 0,
-    approvedTestimonials: 0,
-    totalServices: 0,
-    activeServices: 0,
-    featuredServices: 0,
-    totalProjectsShowcase: 0,
-    featuredProjectsShowcase: 0
+    totalRevenue: 0,
+    monthlyRevenue: 0,
+    totalClients: 0,
+    activeUsers: 0,
+    pendingQuotes: 0,
+    recentContacts: 0,
+    averageProjectValue: 0,
+    completionRate: 0,
+    clientSatisfaction: 0
   });
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTimeframe, setSelectedTimeframe] = useState('month');
+  const { toast } = useToast();
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      // Fetch all stats in parallel
-      const [
-        clientsResponse,
-        invoicesResponse,
-        projectsResponse,
-        testimonialsResponse,
-        servicesResponse,
-        projectsShowcaseResponse,
-      ] = await Promise.all([
-        supabase.from('clients').select('id, created_at'),
-        supabase.from('invoices').select('id, total_amount, status, created_at, due_date'),
-        supabase.from('projects').select('id, status, created_at, title'),
-        supabase.from('testimonials').select('id, is_approved, created_at, client_name, content'),
-        supabase.from('services_content').select('id, is_active, is_featured, created_at, title'),
-        supabase.from('projects_showcase').select('id, is_active, is_featured, created_at, title'),
-      ]);
-
-      const clients = clientsResponse.data || [];
-      const invoices = invoicesResponse.data || [];
-      const projects = projectsResponse.data || [];
-      const testimonials = testimonialsResponse.data || [];
-      const services = servicesResponse.data || [];
-      const projectsShowcase = projectsShowcaseResponse.data || [];
-
-      // Calculate stats
-      const totalRevenue = invoices
-        .filter(inv => inv.status === 'paid')
-        .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-
-      const pendingInvoices = invoices.filter(inv => inv.status === 'sent' || inv.status === 'draft').length;
-      
-      const overdueInvoices = invoices.filter(inv => {
-        if (inv.status !== 'sent') return false;
-        const dueDate = new Date(inv.due_date);
-        const today = new Date();
-        return dueDate < today;
-      }).length;
-
-      const activeProjects = projects.filter(p => p.status === 'in_progress').length;
-      const completedProjects = projects.filter(p => p.status === 'completed').length;
-      const approvedTestimonials = testimonials.filter(t => t.is_approved).length;
-      const activeServices = services.filter(s => s.is_active).length;
-      const featuredServices = services.filter(s => s.is_featured).length;
-      const featuredProjectsShowcase = projectsShowcase.filter(p => p.is_featured).length;
-
-      setStats({
-        totalClients: clients.length,
-        totalInvoices: invoices.length,
-        totalRevenue,
-        pendingInvoices,
-        overdueInvoices,
-        activeProjects,
-        completedProjects,
-        totalTestimonials: testimonials.length,
-        approvedTestimonials,
-        totalServices: services.length,
-        activeServices,
-        featuredServices,
-        totalProjectsShowcase: projectsShowcase.length,
-        featuredProjectsShowcase
-      });
-
-      // Generate recent activity
-      const activities: RecentActivity[] = [
-        ...invoices.slice(-3).map(inv => ({
-          id: inv.id,
-          type: 'invoice' as const,
-          title: `Invoice Created`,
-          description: `New invoice for KSh ${inv.total_amount?.toLocaleString()}`,
-          date: inv.created_at,
-          status: inv.status
-        })),
-        ...projects.slice(-2).map(proj => ({
-          id: proj.id,
-          type: 'project' as const,
-          title: proj.title,
-          description: `Project status: ${proj.status}`,
-          date: proj.created_at,
-          status: proj.status
-        })),
-        ...testimonials.slice(-2).map(test => ({
-          id: test.id,
-          type: 'testimonial' as const,
-          title: `Testimonial from ${test.client_name}`,
-          description: test.content.substring(0, 100) + '...',
-          date: test.created_at,
-          status: test.is_approved ? 'approved' : 'pending'
-        }))
-      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
-
-      setRecentActivity(activities);
-
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load dashboard data",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
+  // Mock data for dashboard
+  const mockStats: DashboardStats = {
+    totalProjects: 156,
+    activeProjects: 23,
+    completedProjects: 133,
+    totalRevenue: 5200000000,
+    monthlyRevenue: 450000000,
+    totalClients: 89,
+    activeUsers: 45,
+    pendingQuotes: 12,
+    recentContacts: 8,
+    averageProjectValue: 33333333,
+    completionRate: 95.2,
+    clientSatisfaction: 4.8
   };
 
-  const quickActions = [
+  const mockActivities: RecentActivity[] = [
     {
-      title: "Create Invoice",
-      description: "Generate a new invoice",
-      icon: FileText,
-      onClick: () => navigate('/admin/invoices'),
-      color: "bg-blue-500"
+      id: '1',
+      type: 'project',
+      title: 'Nairobi CBD Office Complex',
+      description: 'Project marked as completed',
+      timestamp: '2 hours ago',
+      status: 'success',
+      user: 'John Kamau'
     },
     {
-      title: "Add Client",
-      description: "Register new client",
-      icon: Users,
-      onClick: () => navigate('/admin/clients'),
-      color: "bg-green-500"
+      id: '2',
+      type: 'contact',
+      title: 'New Contact Submission',
+      description: 'Sarah Wanjiku submitted a contact form for residential project',
+      timestamp: '4 hours ago',
+      status: 'info'
     },
     {
-      title: "New Project",
-      description: "Start a new project",
-      icon: Building2,
-      onClick: () => navigate('/admin/projects'),
-      color: "bg-purple-500"
+      id: '3',
+      type: 'quote',
+      title: 'Quote Request',
+      description: 'Quote requested for Mombasa Port Expansion project',
+      timestamp: '6 hours ago',
+      status: 'warning',
+      user: 'Mary Ochieng'
     },
     {
-      title: "SEO Management",
-      description: "Optimize website SEO",
-      icon: TrendingUp,
-      onClick: () => navigate('/admin/seo'),
-      color: "bg-indigo-500"
+      id: '4',
+      type: 'payment',
+      title: 'Payment Received',
+      description: 'KES 25,000,000 payment received for Westlands Estate',
+      timestamp: '1 day ago',
+      status: 'success'
     },
     {
-      title: "Manage Personnel",
-      description: "Admin user management",
-      icon: Shield,
-      onClick: () => navigate('/admin/personnel'),
-      color: "bg-red-500"
-    },
-    {
-      title: "Calendar & Events",
-      description: "Schedule management",
-      icon: Calendar,
-      onClick: () => navigate('/admin/calendar'),
-      color: "bg-teal-500"
-    },
-    {
-      title: "File Manager",
-      description: "Upload & organize files",
-      icon: Folder,
-      onClick: () => navigate('/admin/files'),
-      color: "bg-yellow-500"
-    },
-    {
-      title: "Manage Services",
-      description: "Update service offerings",
-      icon: Wrench,
-      onClick: () => navigate('/admin/services'),
-      color: "bg-orange-500"
+      id: '5',
+      type: 'user',
+      title: 'New User Registration',
+      description: 'Peter Mwangi registered as a new client',
+      timestamp: '1 day ago',
+      status: 'info'
     }
   ];
 
-  const getStatusIcon = (type: string, status?: string) => {
-    if (type === 'invoice') {
-      switch (status) {
-        case 'paid': return <CheckCircle className="w-4 h-4 text-green-600" />;
-        case 'sent': return <Clock className="w-4 h-4 text-blue-600" />;
-        case 'overdue': return <AlertCircle className="w-4 h-4 text-red-600" />;
-        default: return <FileText className="w-4 h-4 text-gray-600" />;
+  const projectMetrics: ProjectMetrics[] = [
+    { name: 'Commercial', completed: 45, inProgress: 8, planned: 12 },
+    { name: 'Residential', completed: 38, inProgress: 6, planned: 9 },
+    { name: 'Infrastructure', completed: 32, inProgress: 5, planned: 15 },
+    { name: 'Industrial', completed: 18, inProgress: 4, planned: 8 }
+  ];
+
+  const revenueData: RevenueData[] = [
+    { month: 'Jan', revenue: 380000000, projects: 12, target: 400000000 },
+    { month: 'Feb', revenue: 420000000, projects: 15, target: 400000000 },
+    { month: 'Mar', revenue: 350000000, projects: 11, target: 400000000 },
+    { month: 'Apr', revenue: 480000000, projects: 18, target: 450000000 },
+    { month: 'May', revenue: 520000000, projects: 20, target: 450000000 },
+    { month: 'Jun', revenue: 450000000, projects: 16, target: 450000000 }
+  ];
+
+  const clientDistribution = [
+    { name: 'Government', value: 35, color: '#3B82F6' },
+    { name: 'Private Companies', value: 45, color: '#10B981' },
+    { name: 'Individual Clients', value: 20, color: '#F59E0B' }
+  ];
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      try {
+        // Simulate API calls
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setStats(mockStats);
+        setRecentActivities(mockActivities);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load dashboard data",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
       }
+    };
+
+    fetchDashboardData();
+  }, [toast]);
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'project':
+        return <Building2 className="h-4 w-4" />;
+      case 'contact':
+        return <Mail className="h-4 w-4" />;
+      case 'quote':
+        return <FileText className="h-4 w-4" />;
+      case 'payment':
+        return <DollarSign className="h-4 w-4" />;
+      case 'user':
+        return <Users className="h-4 w-4" />;
+      default:
+        return <Activity className="h-4 w-4" />;
     }
-    if (type === 'testimonial') {
-      return status === 'approved' ? 
-        <Star className="w-4 h-4 text-yellow-600" /> : 
-        <Clock className="w-4 h-4 text-orange-600" />;
+  };
+
+  const getActivityColor = (status: string) => {
+    switch (status) {
+      case 'success':
+        return 'text-green-600 bg-green-100';
+      case 'warning':
+        return 'text-yellow-600 bg-yellow-100';
+      case 'error':
+        return 'text-red-600 bg-red-100';
+      case 'info':
+        return 'text-blue-600 bg-blue-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
     }
-    return <Activity className="w-4 h-4 text-blue-600" />;
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[...Array(8)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminHeader />
-      
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-            <div className="flex gap-4">
-              <PWAInstaller />
-            </div>
-          </div>
-
-          <AdminPageHeader
-            title="Dashboard Overview"
-            description="Welcome back! Here's what's happening with your business."
-          />
-
-          {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="relative overflow-hidden">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                <div className="p-2 bg-green-100 rounded-full">
-                  <DollarSign className="w-4 h-4 text-green-600" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  KSh {stats.totalRevenue.toLocaleString()}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  From {stats.totalInvoices} total invoices
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="relative overflow-hidden">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
-                <div className="p-2 bg-blue-100 rounded-full">
-                  <Building2 className="w-4 h-4 text-blue-600" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.activeProjects}</div>
-                <p className="text-xs text-muted-foreground">
-                  {stats.completedProjects} completed
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="relative overflow-hidden">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
-                <div className="p-2 bg-purple-100 rounded-full">
-                  <Users className="w-4 h-4 text-purple-600" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalClients}</div>
-                <p className="text-xs text-muted-foreground">
-                  Registered clients
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="relative overflow-hidden">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Invoices</CardTitle>
-                <div className="p-2 bg-orange-100 rounded-full">
-                  <Clock className="w-4 h-4 text-orange-600" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.pendingInvoices}</div>
-                <p className="text-xs text-muted-foreground">
-                  {stats.overdueInvoices} overdue
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Quick Actions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {quickActions.map((action, index) => (
-                  <Button
-                    key={index}
-                    variant="outline"
-                    className="h-auto p-4 flex flex-col items-center gap-3 hover:shadow-md transition-shadow"
-                    onClick={action.onClick}
-                  >
-                    <div className={`p-3 ${action.color} rounded-full`}>
-                      <action.icon className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="text-center">
-                      <div className="font-medium">{action.title}</div>
-                      <div className="text-xs text-muted-foreground">{action.description}</div>
-                    </div>
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Content Management Stats */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="w-5 h-5" />
-                  Website Content
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Services</p>
-                    <p className="text-sm text-muted-foreground">
-                      {stats.activeServices} active, {stats.featuredServices} featured
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold">{stats.totalServices}</div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate('/admin/services')}
-                    >
-                      Manage
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Project Showcase</p>
-                    <p className="text-sm text-muted-foreground">
-                      {stats.featuredProjectsShowcase} featured projects
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold">{stats.totalProjectsShowcase}</div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate('/admin/projects')}
-                    >
-                      Manage
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Testimonials</p>
-                    <p className="text-sm text-muted-foreground">
-                      {stats.approvedTestimonials} approved
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold">{stats.totalTestimonials}</div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate('/admin/testimonials')}
-                    >
-                      Review
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Admin Personnel Management */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Admin Personnel
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-blue-600">5</div>
-                      <p className="text-sm text-muted-foreground">Active Admins</p>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-green-600">12</div>
-                      <p className="text-sm text-muted-foreground">Login Sessions</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => navigate('/admin/personnel')}
-                      className="flex-1"
-                    >
-                      <Users className="w-4 h-4 mr-2" />
-                      Manage Personnel
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate('/admin/personnel?tab=security')}
-                      className="flex-1"
-                    >
-                      <AlertTriangle className="w-4 h-4 mr-2" />
-                      Security Events
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Calendar Management */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5" />
-                  Calendar & Events
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-blue-600">8</div>
-                      <p className="text-sm text-muted-foreground">Upcoming Events</p>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-orange-600">3</div>
-                      <p className="text-sm text-muted-foreground">Overdue Tasks</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => navigate('/admin/calendar')}
-                      className="flex-1"
-                    >
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Open Calendar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate('/admin/calendar?view=agenda')}
-                      className="flex-1"
-                    >
-                      <Clock className="w-4 h-4 mr-2" />
-                      View Agenda
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* File Management */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5" />
-                  File Storage
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-green-600">2.5 GB</div>
-                      <p className="text-sm text-muted-foreground">Storage Used</p>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-purple-600">127</div>
-                      <p className="text-sm text-muted-foreground">Total Files</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => navigate('/admin/files')}
-                      className="flex-1"
-                    >
-                      <Wrench className="w-4 h-4 mr-2" />
-                      File Manager
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate('/admin/files?category=project')}
-                      className="flex-1"
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      Project Files
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="w-5 h-5" />
-                  Recent Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentActivity.length > 0 ? (
-                    recentActivity.map((activity) => (
-                      <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
-                        <div className="flex-shrink-0 mt-1">
-                          {getStatusIcon(activity.type, activity.status)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">{activity.title}</p>
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {activity.description}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(activity.date).toLocaleDateString()}
-                          </p>
-                        </div>
-                        {activity.status && (
-                          <Badge 
-                            variant={
-                              activity.status === 'paid' || activity.status === 'approved' || activity.status === 'completed' 
-                                ? 'default' 
-                                : 'secondary'
-                            }
-                            className="text-xs"
-                          >
-                            {activity.status}
-                          </Badge>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-center text-muted-foreground py-4">
-                      No recent activity
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Invoice Status Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                Invoice Status Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-green-600">
-                    {((stats.totalInvoices - stats.pendingInvoices) / Math.max(stats.totalInvoices, 1) * 100).toFixed(1)}%
-                  </div>
-                  <p className="text-sm text-muted-foreground">Invoices Paid</p>
-                  <Progress 
-                    value={(stats.totalInvoices - stats.pendingInvoices) / Math.max(stats.totalInvoices, 1) * 100} 
-                    className="mt-2"
-                  />
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-600">
-                    {(stats.pendingInvoices / Math.max(stats.totalInvoices, 1) * 100).toFixed(1)}%
-                  </div>
-                  <p className="text-sm text-muted-foreground">Pending Payment</p>
-                  <Progress 
-                    value={stats.pendingInvoices / Math.max(stats.totalInvoices, 1) * 100} 
-                    className="mt-2"
-                  />
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-red-600">
-                    {(stats.overdueInvoices / Math.max(stats.totalInvoices, 1) * 100).toFixed(1)}%
-                  </div>
-                  <p className="text-sm text-muted-foreground">Overdue</p>
-                  <Progress 
-                    value={stats.overdueInvoices / Math.max(stats.totalInvoices, 1) * 100} 
-                    className="mt-2"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+    <div className="p-6 space-y-8">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+          <p className="text-gray-600 mt-1">Welcome back! Here's what's happening with your projects.</p>
         </div>
-      </main>
+        <div className="flex gap-3">
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export Report
+          </Button>
+          <Button size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            New Project
+          </Button>
+        </div>
+      </div>
+
+      {/* Key Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Projects</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalProjects}</p>
+                <p className="text-xs text-green-600 flex items-center mt-1">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  +12% from last month
+                </p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-full">
+                <Building2 className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
+                <p className="text-2xl font-bold text-gray-900">{formatDisplayAmount(stats.monthlyRevenue)}</p>
+                <p className="text-xs text-green-600 flex items-center mt-1">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  +8% from last month
+                </p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-full">
+                <DollarSign className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active Projects</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeProjects}</p>
+                <p className="text-xs text-blue-600 flex items-center mt-1">
+                  <Activity className="h-3 w-3 mr-1" />
+                  {stats.activeProjects} in progress
+                </p>
+              </div>
+              <div className="p-3 bg-yellow-100 rounded-full">
+                <Clock className="h-6 w-6 text-yellow-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Client Satisfaction</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.clientSatisfaction}/5.0</p>
+                <p className="text-xs text-green-600 flex items-center mt-1">
+                  <Star className="h-3 w-3 mr-1" />
+                  Excellent rating
+                </p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-full">
+                <Star className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Secondary Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Clients</p>
+                <p className="text-xl font-bold text-gray-900">{stats.totalClients}</p>
+              </div>
+              <Users className="h-5 w-5 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pending Quotes</p>
+                <p className="text-xl font-bold text-gray-900">{stats.pendingQuotes}</p>
+              </div>
+              <FileText className="h-5 w-5 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Completion Rate</p>
+                <p className="text-xl font-bold text-gray-900">{stats.completionRate}%</p>
+              </div>
+              <Target className="h-5 w-5 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Avg Project Value</p>
+                <p className="text-xl font-bold text-gray-900">{formatDisplayAmount(stats.averageProjectValue)}</p>
+              </div>
+              <Award className="h-5 w-5 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts and Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Revenue Trends
+            </CardTitle>
+            <CardDescription>Monthly revenue vs targets</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={revenueData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value) => `${value / 1000000}M`} />
+                <Tooltip 
+                  formatter={(value: number) => [formatDisplayAmount(value), 'Revenue']}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="#3B82F6" 
+                  fill="#3B82F6" 
+                  fillOpacity={0.3}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="target" 
+                  stroke="#EF4444" 
+                  fill="none" 
+                  strokeDasharray="5 5"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Project Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PieChartIcon className="h-5 w-5" />
+              Project Distribution
+            </CardTitle>
+            <CardDescription>Projects by category</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={projectMetrics} layout="horizontal">
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis dataKey="name" type="category" width={80} />
+                <Tooltip />
+                <Bar dataKey="completed" fill="#10B981" name="Completed" />
+                <Bar dataKey="inProgress" fill="#3B82F6" name="In Progress" />
+                <Bar dataKey="planned" fill="#F59E0B" name="Planned" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Client Distribution and Recent Activities */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Client Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Client Distribution</CardTitle>
+            <CardDescription>Breakdown by client type</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {clientDistribution.map((client, index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: client.color }}
+                    ></div>
+                    <span className="text-sm font-medium">{client.name}</span>
+                  </div>
+                  <span className="text-sm text-gray-600">{client.value}%</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6">
+              <ResponsiveContainer width="100%" height={150}>
+                <PieChart>
+                  <Pie
+                    data={clientDistribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={60}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {clientDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Activities */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Recent Activities
+            </CardTitle>
+            <CardDescription>Latest system activities and updates</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentActivities.map((activity) => (
+                <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className={`p-2 rounded-full ${getActivityColor(activity.status)}`}>
+                    {getActivityIcon(activity.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {activity.title}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {activity.description}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs text-gray-500">{activity.timestamp}</span>
+                      {activity.user && (
+                        <span className="text-xs text-blue-600">by {activity.user}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4">
+              <Button variant="outline" className="w-full">
+                View All Activities
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Frequently used administrative functions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <Button asChild variant="outline" className="h-20 flex-col gap-2">
+              <Link to="/admin/projects">
+                <Building2 className="h-6 w-6" />
+                <span className="text-xs">Projects</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-20 flex-col gap-2">
+              <Link to="/admin/clients">
+                <Users className="h-6 w-6" />
+                <span className="text-xs">Clients</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-20 flex-col gap-2">
+              <Link to="/admin/quotes">
+                <FileText className="h-6 w-6" />
+                <span className="text-xs">Quotes</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-20 flex-col gap-2">
+              <Link to="/admin/contacts">
+                <Mail className="h-6 w-6" />
+                <span className="text-xs">Contacts</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-20 flex-col gap-2">
+              <Link to="/admin/reports">
+                <BarChart3 className="h-6 w-6" />
+                <span className="text-xs">Reports</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-20 flex-col gap-2">
+              <Link to="/admin/settings">
+                <Settings className="h-6 w-6" />
+                <span className="text-xs">Settings</span>
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
