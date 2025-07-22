@@ -59,7 +59,7 @@ const Solutions = () => {
       <SEOHead
         title="Engineering Solutions - AKIBEKS Engineering"
         description="Comprehensive engineering solutions for commercial, residential, and industrial projects. From smart building systems to maintenance and safety compliance."
-        keywords="engineering solutions, commercial construction, residential projects, industrial engineering, smart buildings, maintenance services"
+        keywords={["engineering solutions", "commercial construction", "residential projects", "industrial engineering", "smart buildings", "maintenance services"]}
       />
 
       <ModernHero

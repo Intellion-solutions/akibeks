@@ -17,8 +17,7 @@ import {
   Github,
   Heart,
   Shield,
-  Lightbulb,
-  Heart
+  Lightbulb
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 

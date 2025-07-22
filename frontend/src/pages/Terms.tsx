@@ -11,7 +11,7 @@ const Terms = () => {
       <SEOHead 
         title="Terms of Service - AKIBEKS Engineering Solutions"
         description="Read the terms and conditions for using AKIBEKS Engineering Solutions services. Understand your rights and responsibilities."
-        keywords="terms of service, terms and conditions, AKIBEKS terms, engineering terms, construction terms"
+        keywords={["terms of service", "terms and conditions", "AKIBEKS terms", "engineering terms", "construction terms"]}
       />
       
       <div className="min-h-screen bg-gray-50">

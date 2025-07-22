@@ -80,7 +80,7 @@ const Industries = () => {
       <SEOHead
         title="Industries We Serve - AKIBEKS Engineering"
         description="AKIBEKS Engineering serves diverse industries including commercial real estate, manufacturing, residential development, energy, water treatment, and transportation infrastructure."
-        keywords="engineering industries, commercial construction, manufacturing facilities, residential development, energy projects, transportation infrastructure"
+        keywords={["engineering industries", "commercial construction", "manufacturing facilities", "residential development", "energy projects", "transportation infrastructure"]}
       />
 
       {/* Hero Section */}

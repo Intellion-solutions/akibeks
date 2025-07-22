@@ -9,7 +9,9 @@ import {
   LogOut,
   Menu,
   X,
-  Building2
+  Building2,
+  Shield,
+  BarChart3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -45,9 +47,19 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       icon: Users,
     },
     {
+      name: 'Analytics',
+      href: '/admin/analytics',
+      icon: BarChart3,
+    },
+    {
       name: 'SEO',
       href: '/admin/seo',
       icon: Search,
+    },
+    {
+      name: 'Security',
+      href: '/admin/security',
+      icon: Shield,
     },
     {
       name: 'Settings',

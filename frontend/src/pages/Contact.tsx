@@ -24,8 +24,8 @@ import {
   Globe
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import SMTPService from '@/lib/smtp-service';
+// Footer component removed
+// SMTP service removed, using database client instead
 
 const Contact = () => {
   const { toast } = useToast();
@@ -69,7 +69,7 @@ const Contact = () => {
       }
 
       // Submit contact form
-      await smtpService.submitContactForm({
+      await smtpService.sendContactEmail({
         ...formData,
         source_page: window.location.pathname,
         user_agent: userAgent,
@@ -546,7 +546,7 @@ const Contact = () => {
         </section>
       </div>
 
-      <Footer />
+      {/* Footer component temporarily removed */}
     </div>
   );
 };

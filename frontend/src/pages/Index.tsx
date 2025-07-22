@@ -273,7 +273,7 @@ const Index = () => {
             {/* Services Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
               {services.length > 0 ? services.map((service) => {
-                const IconComponent = (serviceIcons as any)[service.icon] || Building2;
+                const IconComponent = (serviceIcons as any)[service.category?.toLowerCase()] || Building2;
                 
                 return (
                   <Card key={service.id} className="group hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border-0 shadow-lg">
@@ -282,7 +282,7 @@ const Index = () => {
                         <IconComponent className="w-8 h-8 text-blue-600" />
                       </div>
                       <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                        {service.title}
+                        {service.name}
                       </CardTitle>
                       <CardDescription className="text-gray-600">
                         {service.description}
@@ -300,11 +300,11 @@ const Index = () => {
                         </ul>
                       )}
 
-                      {service.priceRangeMin && service.priceRangeMax && (
+                      {service.basePrice && (
                         <div className="flex items-center justify-between py-2 border-t border-gray-100">
                           <span className="text-sm text-gray-500">Price Range:</span>
                           <span className="font-semibold text-blue-600">
-                            {formatDisplayAmount(parseFloat(service.priceRangeMin))} - {formatDisplayAmount(parseFloat(service.priceRangeMax))}
+                            From KES {service.basePrice.toLocaleString()}
                           </span>
                         </div>
                       )}
@@ -509,13 +509,13 @@ const Index = () => {
                 <Card key={project.id} className="group overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
                   <div className="aspect-video relative overflow-hidden">
                     <img 
-                      src={project.imageUrl || `https://images.unsplash.com/photo-159007293600${Math.floor(Math.random() * 10)}?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80`}
+                      src={`https://images.unsplash.com/photo-159007293600${Math.floor(Math.random() * 10)}?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80`}
                       alt={project.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                     <Badge className="absolute top-4 left-4 bg-blue-600">
-                      {project.projectType}
+                      {project.status}
                     </Badge>
                     <div className="absolute bottom-4 left-4 text-white">
                       <div className="flex items-center text-sm mb-1">
@@ -533,7 +533,7 @@ const Index = () => {
                     </p>
                     <div className="flex items-center justify-between mb-4">
                       <div className="text-sm text-gray-500">
-                        Budget: {formatDisplayAmount(parseFloat(project.budgetKes))}
+                        Budget: KES {project.budgetKes.toLocaleString()}
                       </div>
                       <Badge variant="outline" className={
                         project.completionPercentage === 100 ? "text-green-600 border-green-200" :
@@ -601,21 +601,16 @@ const Index = () => {
                     {/* Quote */}
                     <blockquote className="text-gray-700 mb-6 italic">
                       <Quote className="w-6 h-6 text-blue-200 mb-2" />
-                      "{testimonial.message}"
+                      "{testimonial.content}"
                     </blockquote>
 
                     {/* Client Info */}
                     <div className="border-t pt-4">
-                      <div className="font-semibold text-gray-900">{testimonial.name}</div>
+                      <div className="font-semibold text-gray-900">{testimonial.clientName}</div>
                       {testimonial.company && (
                         <div className="text-sm text-gray-600">{testimonial.company}</div>
                       )}
-                      {testimonial.location && (
-                        <div className="text-sm text-blue-600 flex items-center mt-1">
-                          <MapPin className="w-3 h-3 mr-1" />
-                          {testimonial.location}
-                        </div>
-                      )}
+                      {/* Location removed as it's not in the Testimonial type */}
                     </div>
                   </CardContent>
                 </Card>

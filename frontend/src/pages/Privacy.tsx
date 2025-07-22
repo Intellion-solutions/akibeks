@@ -11,7 +11,7 @@ const Privacy = () => {
       <SEOHead 
         title="Privacy Policy - AKIBEKS Engineering Solutions"
         description="Learn how AKIBEKS Engineering Solutions protects your privacy and handles your personal information. Comprehensive privacy policy and data protection details."
-        keywords="privacy policy, data protection, AKIBEKS privacy, engineering privacy, construction privacy"
+        keywords={["privacy policy", "data protection", "AKIBEKS privacy", "engineering privacy", "construction privacy"]}
       />
       
       <div className="min-h-screen bg-gray-50">

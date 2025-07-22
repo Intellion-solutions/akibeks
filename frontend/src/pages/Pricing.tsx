@@ -213,7 +213,7 @@ const Pricing = () => {
       <SEOHead 
         title="Pricing - Transparent Construction & Engineering Costs in Kenya"
         description="Explore our transparent pricing for residential, commercial construction and engineering services. Get quality construction at competitive rates with clear pricing structure."
-        keywords="construction pricing Kenya, building costs, engineering rates, residential construction price, commercial building costs"
+        keywords={["construction pricing Kenya", "building costs", "engineering rates", "residential construction price", "commercial building costs"]}
       />
       
       <div className="min-h-screen bg-white">

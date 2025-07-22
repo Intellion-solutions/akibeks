@@ -127,7 +127,7 @@ const Features = () => {
       <SEOHead 
         title="Features & Services - Comprehensive Construction & Engineering Solutions"
         description="Explore our comprehensive range of construction and engineering features including residential, commercial, infrastructure projects, and advanced technology solutions."
-        keywords="construction features, engineering services, residential construction, commercial projects, infrastructure development, Kenya construction"
+        keywords={["construction features", "engineering services", "residential construction", "commercial projects", "infrastructure development", "Kenya construction"]}
       />
       
       <div className="min-h-screen bg-white">
