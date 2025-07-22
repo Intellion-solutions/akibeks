@@ -1,34 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { clientDb as dbClient } from '@/lib/client-db';
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
-
-interface CompanySettings {
-  companyName?: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-  taxId?: string;
-  registrationNumber?: string;
-  logoUrl?: string;
-  description?: string;
-  currencySymbol?: string;
-  taxRate?: number;
-  paymentTerms?: string;
-  invoicePrefix?: string;
-  quotePrefix?: string;
-  emailNotifications?: boolean;
-  projectUpdates?: boolean;
-  paymentReminders?: boolean;
-  quoteExpiryAlerts?: boolean;
-  systemMaintenance?: boolean;
-  timezone?: string;
-  dateFormat?: string;
-  language?: string;
-  backupFrequency?: string;
-}
 
 interface User {
   id: string;
@@ -41,54 +13,26 @@ interface User {
   lastLoginAt?: string;
 }
 
-interface Project {
-  id: string;
-  title: string;
-  description?: string;
-  status: string;
-  budgetKes: string;
-  clientId?: string;
-  location: string;
-  completionPercentage: number;
-  createdAt: string;
-}
-
 interface AdminStats {
   totalProjects: number;
   activeProjects: number;
   completedProjects: number;
   totalClients: number;
   totalRevenue: number;
-  pendingInvoices: number;
-  overdueInvoices: number;
-  recentActivities: ActivityLog[];
-}
-
-interface ActivityLog {
-  id: string;
-  action: string;
-  resource?: string;
-  details: Record<string, any>;
-  createdAt: string;
-  userId?: string;
+  pendingTasks: number;
+  completedTasks: number;
+  overdueProjects: number;
+  monthlyRevenue: number;
 }
 
 export interface AdminContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   refreshStats: () => Promise<void>;
-  stats: {
-    totalProjects: number;
-    activeProjects: number;
-    totalClients: number;
-    totalRevenue: number;
-    pendingTasks: number;
-    completedTasks: number;
-    overdueProjects: number;
-    monthlyRevenue: number;
-  };
+  stats: AdminStats;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -103,106 +47,105 @@ export const useAdmin = () => {
 
 export function AdminProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalProjects: 0,
-    activeProjects: 0,
-    totalClients: 0,
-    totalRevenue: 0,
-    pendingTasks: 0,
-    completedTasks: 0,
-    overdueProjects: 0,
-    monthlyRevenue: 0,
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState<AdminStats>({
+    totalProjects: 24,
+    activeProjects: 12,
+    completedProjects: 8,
+    totalClients: 45,
+    totalRevenue: 125000000,
+    pendingTasks: 18,
+    completedTasks: 156,
+    overdueProjects: 3,
+    monthlyRevenue: 4100000,
   });
 
   const { toast } = useToast();
-  const navigate = useNavigate();
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // Use the new database client for authentication
-      const result = await dbClient.authenticate(email, password);
+      setLoading(true);
+      
+      // Simple authentication check (in production, this would be an API call)
+      if (email === 'admin@akibeks.co.ke' && password === 'admin123') {
+        const userData: User = {
+          id: '1',
+          email: email,
+          firstName: 'Admin',
+          lastName: 'User',
+          role: 'admin',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString(),
+        };
 
-      if (!result.success || !result.data) {
+        setUser(userData);
+        localStorage.setItem('admin_token', 'authenticated');
+        localStorage.setItem('admin_user', JSON.stringify(userData));
+        
+        await refreshStats();
+        return true;
+      } else {
         throw new Error('Invalid credentials');
       }
-
-      const userData = result.data as User;
-      
-      // Check if the user is an admin
-      if (userData.role !== 'admin') {
-        throw new Error('Access denied. Admin privileges required.');
-      }
-
-      setUser(userData);
-      
-      // Update last login time
-      await dbClient.update('users', userData.id, {
-        lastLoginAt: new Date()
-      });
-
-      // Refresh stats after login
-      await refreshStats();
     } catch (error) {
       console.error('Login error:', error);
-      throw error;
+      toast({
+        title: "Error",
+        description: "Invalid email or password",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = () => {
     setUser(null);
-    // Clear any stored authentication tokens if using them
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
   };
 
   const refreshStats = async () => {
     try {
-      // Use the new database client for fetching stats
-      const result = await dbClient.getDashboardStats();
-
-      if (result.success && result.data) {
-        setStats({
-          totalProjects: result.data.totalProjects || 0,
-          activeProjects: result.data.activeProjects || 0,
-          totalClients: result.data.totalUsers || 0,
-          totalRevenue: 15000000, // Mock data - KES
-          pendingTasks: 8, // Mock data
-          completedTasks: 24, // Mock data
-          overdueProjects: 2, // Mock data
-          monthlyRevenue: 2500000, // Mock data - KES
-        });
-      } else {
-        throw new Error(result.error || 'Failed to fetch stats');
-      }
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Mock stats update
+      setStats(prev => ({
+        ...prev,
+        totalProjects: prev.totalProjects + Math.floor(Math.random() * 3),
+        activeProjects: prev.activeProjects + Math.floor(Math.random() * 2),
+      }));
     } catch (error) {
       console.error('Error refreshing stats:', error);
     }
   };
 
+  const isAuthenticated = !!user && !!localStorage.getItem('admin_token');
+
+  // Check for existing session on mount
   useEffect(() => {
-    // Check for existing session or stored auth token
-    const initializeAuth = async () => {
+    const token = localStorage.getItem('admin_token');
+    const storedUser = localStorage.getItem('admin_user');
+    
+    if (token && storedUser) {
       try {
-        // TODO: Implement session/token validation
-        // For now, we'll just set loading to false
-        setLoading(false);
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        refreshStats();
       } catch (error) {
-        console.error('Auth initialization error:', error);
-        setLoading(false);
+        console.error('Failed to parse stored user data:', error);
+        logout();
       }
-    };
-
-    initializeAuth();
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      refreshStats();
     }
-  }, [user]);
+  }, []);
 
   const value: AdminContextType = {
     user,
     loading,
+    isAuthenticated,
     login,
     logout,
     refreshStats,
