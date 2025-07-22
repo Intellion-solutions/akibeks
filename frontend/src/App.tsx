@@ -32,6 +32,8 @@ const AdminSettings = React.lazy(() => import('@/pages/admin/AdminSettings'));
 const AdminSEO = React.lazy(() => import('@/pages/admin/AdminSEO'));
 const AdminSecurity = React.lazy(() => import('@/pages/admin/AdminSecurity'));
 const AdminAnalytics = React.lazy(() => import('@/pages/admin/AdminAnalytics'));
+const AdminTasks = React.lazy(() => import('@/pages/admin/AdminTasks'));
+const AdminClients = React.lazy(() => import('@/pages/admin/AdminClients'));
 
 // Configure React Query with optimized settings
 const queryClient = new QueryClient({
@@ -101,6 +103,8 @@ function App() {
                 <Route path="/admin/services" element={<AdminRoute><AdminServices /></AdminRoute>} />
                 {/* AdminUsers route removed */}
                 <Route path="/admin/seo" element={<AdminRoute><AdminSEO /></AdminRoute>} />
+                <Route path="/admin/clients" element={<AdminRoute><AdminClients /></AdminRoute>} />
+                <Route path="/admin/tasks" element={<AdminRoute><AdminTasks /></AdminRoute>} />
                 <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
                 <Route path="/admin/security" element={<AdminRoute><AdminSecurity /></AdminRoute>} />
                 <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />

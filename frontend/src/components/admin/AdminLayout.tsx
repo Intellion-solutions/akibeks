@@ -11,7 +11,8 @@ import {
   X,
   Building2,
   Shield,
-  BarChart3
+  BarChart3,
+  CheckSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,16 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       name: 'Users',
       href: '/admin/users',
       icon: Users,
+    },
+    {
+      name: 'Clients',
+      href: '/admin/clients',
+      icon: Users,
+    },
+    {
+      name: 'Tasks',
+      href: '/admin/tasks',
+      icon: CheckSquare,
     },
     {
       name: 'Analytics',
