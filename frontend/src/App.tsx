@@ -1,71 +1,87 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { HelmetProvider } from 'react-helmet-async';
 import { AdminProvider } from './contexts/AdminContext';
 import { ThemeProvider } from './contexts/ThemeContext';
-
-// Layout component
 import Layout from './components/layout/Layout';
+import LoadingSpinner from './components/ui/loading-spinner';
 
-// Public pages
-import Index from './pages/Index';
-import Services from './pages/Services';
-import About from './pages/About';
-import Contact from './pages/Contact';
-import CaseStudies from './pages/CaseStudies';
-import Innovation from './pages/Innovation';
-import Sustainability from './pages/Sustainability';
-import Portfolio from './pages/Portfolio';
-import NotFound from './pages/NotFound';
+// Lazy load public pages for better performance
+const Index = lazy(() => import('./pages/Index'));
+const Services = lazy(() => import('./pages/Services'));
+const About = lazy(() => import('./pages/About'));
+const Contact = lazy(() => import('./pages/Contact'));
+const CaseStudies = lazy(() => import('./pages/CaseStudies'));
+const Innovation = lazy(() => import('./pages/Innovation'));
+const Sustainability = lazy(() => import('./pages/Sustainability'));
+const Portfolio = lazy(() => import('./pages/Portfolio'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
-// Admin pages
-import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminProjects from './pages/admin/AdminProjects';
-import AdminServices from './pages/admin/AdminServices';
-import AdminSettings from './pages/admin/AdminSettings';
-import AdminCalendar from './pages/admin/AdminCalendar';
-import AdminInvoices from './pages/admin/AdminInvoices';
-import AdminQuotations from './pages/admin/AdminQuotations';
-import AdminUsers from './pages/admin/AdminUsers';
-import AdminFileManager from './pages/admin/AdminFileManager';
+// Lazy load admin pages
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminProjects = lazy(() => import('./pages/admin/AdminProjects'));
+const AdminServices = lazy(() => import('./pages/admin/AdminServices'));
+const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
+const AdminCalendar = lazy(() => import('./pages/admin/AdminCalendar'));
+const AdminInvoices = lazy(() => import('./pages/admin/AdminInvoices'));
+const AdminQuotations = lazy(() => import('./pages/admin/AdminQuotations'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminFileManager = lazy(() => import('./pages/admin/AdminFileManager'));
+const AdminSEO = lazy(() => import('./pages/admin/AdminSEO'));
 
-const queryClient = new QueryClient();
+// Configure React Query with optimized defaults
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      cacheTime: 10 * 60 * 1000, // 10 minutes
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AdminProvider>
-          <Router>
-            <Routes>
-              {/* Public routes with Layout (header and footer) */}
-              <Route path="/" element={<Layout><Index /></Layout>} />
-              <Route path="/services" element={<Layout><Services /></Layout>} />
-              <Route path="/about" element={<Layout><About /></Layout>} />
-              <Route path="/contact" element={<Layout><Contact /></Layout>} />
-              <Route path="/portfolio" element={<Layout><Portfolio /></Layout>} />
-              <Route path="/case-studies" element={<Layout><CaseStudies /></Layout>} />
-              <Route path="/innovation" element={<Layout><Innovation /></Layout>} />
-              <Route path="/sustainability" element={<Layout><Sustainability /></Layout>} />
-              
-              {/* Admin routes without Layout (separate admin interface) */}
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/projects" element={<AdminProjects />} />
-              <Route path="/admin/services" element={<AdminServices />} />
-              <Route path="/admin/settings" element={<AdminSettings />} />
-              <Route path="/admin/calendar" element={<AdminCalendar />} />
-              <Route path="/admin/invoices" element={<AdminInvoices />} />
-              <Route path="/admin/quotations" element={<AdminQuotations />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/admin/files" element={<AdminFileManager />} />
-              
-              {/* 404 Not Found route */}
-              <Route path="*" element={<Layout><NotFound /></Layout>} />
-            </Routes>
-          </Router>
-        </AdminProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AdminProvider>
+            <Router>
+              <Suspense fallback={<LoadingSpinner />}>
+                <Routes>
+                  {/* Public routes with Layout (header and footer) */}
+                  <Route path="/" element={<Layout><Index /></Layout>} />
+                  <Route path="/services" element={<Layout><Services /></Layout>} />
+                  <Route path="/about" element={<Layout><About /></Layout>} />
+                  <Route path="/contact" element={<Layout><Contact /></Layout>} />
+                  <Route path="/portfolio" element={<Layout><Portfolio /></Layout>} />
+                  <Route path="/case-studies" element={<Layout><CaseStudies /></Layout>} />
+                  <Route path="/innovation" element={<Layout><Innovation /></Layout>} />
+                  <Route path="/sustainability" element={<Layout><Sustainability /></Layout>} />
+                  
+                  {/* Admin routes without Layout (separate admin interface) */}
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/projects" element={<AdminProjects />} />
+                  <Route path="/admin/services" element={<AdminServices />} />
+                  <Route path="/admin/settings" element={<AdminSettings />} />
+                  <Route path="/admin/calendar" element={<AdminCalendar />} />
+                  <Route path="/admin/invoices" element={<AdminInvoices />} />
+                  <Route path="/admin/quotations" element={<AdminQuotations />} />
+                  <Route path="/admin/users" element={<AdminUsers />} />
+                  <Route path="/admin/files" element={<AdminFileManager />} />
+                  <Route path="/admin/seo" element={<AdminSEO />} />
+                  
+                  {/* 404 Not Found route */}
+                  <Route path="*" element={<Layout><NotFound /></Layout>} />
+                </Routes>
+              </Suspense>
+            </Router>
+          </AdminProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </HelmetProvider>
   );
 }
 
