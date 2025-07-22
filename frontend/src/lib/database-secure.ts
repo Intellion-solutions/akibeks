@@ -463,7 +463,7 @@ class SecureHttpClient {
 
 // Secure Database Client
 export class SecureDatabaseClient {
-  private http: SecureHttpClient;
+  protected http: SecureHttpClient;
   private auditLog: AuditLog[] = [];
 
   constructor() {

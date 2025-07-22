@@ -27,6 +27,7 @@ import {
   Monitor
 } from "lucide-react";
 import { SecurityService } from '@/lib/security';
+import PasswordSecurityService, { PasswordPolicy, SecureCredential, PasswordStrengthResult } from '@/lib/password-security';
 import SEOHead from "@/components/SEO/SEOHead";
 
 interface SecurityEvent {
@@ -76,6 +77,19 @@ const AdminSecurity: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEventType, setSelectedEventType] = useState('all');
+  const [credentials, setCredentials] = useState<SecureCredential[]>([]);
+  const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy>(PasswordSecurityService.getPasswordPolicy());
+  const [passwordAudit, setPasswordAudit] = useState({
+    weakPasswords: 0,
+    expiredPasswords: 0,
+    reusedPasswords: 0,
+    policyViolations: 0,
+    totalCredentials: 0,
+    securityScore: 0,
+    recommendations: [] as string[]
+  });
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrengthResult | null>(null);
 
   useEffect(() => {
     fetchSecurityData();
@@ -89,6 +103,10 @@ const AdminSecurity: React.FC = () => {
 
       // Get security status from SecurityService
       const status = SecurityService.getSecurityStatus();
+
+      // Fetch password audit data
+      const auditData = await PasswordSecurityService.auditPasswordSecurity();
+      setPasswordAudit(auditData);
 
       // Mock security events (in production, fetch from API)
       const mockEvents: SecurityEvent[] = [
@@ -204,6 +222,43 @@ const AdminSecurity: React.FC = () => {
       return <Smartphone className="h-4 w-4" />;
     }
     return <Monitor className="h-4 w-4" />;
+  };
+
+  // Password Management Functions
+  const handlePasswordChange = (password: string) => {
+    setNewPassword(password);
+    if (password) {
+      const strength = PasswordSecurityService.analyzePasswordStrength(password);
+      setPasswordStrength(strength);
+    } else {
+      setPasswordStrength(null);
+    }
+  };
+
+  const generateSecurePassword = () => {
+    const password = PasswordSecurityService.generateSecurePassword(16);
+    handlePasswordChange(password);
+  };
+
+  const updatePasswordPolicy = async (updates: Partial<PasswordPolicy>) => {
+    PasswordSecurityService.setPasswordPolicy(updates);
+    setPasswordPolicy({ ...passwordPolicy, ...updates });
+    
+    // Refresh audit data
+    const auditData = await PasswordSecurityService.auditPasswordSecurity();
+    setPasswordAudit(auditData);
+  };
+
+  const getPasswordStrengthColor = (strength: string) => {
+    switch (strength) {
+      case 'very-strong': return 'text-green-600 bg-green-100';
+      case 'strong': return 'text-green-600 bg-green-100';
+      case 'good': return 'text-blue-600 bg-blue-100';
+      case 'fair': return 'text-yellow-600 bg-yellow-100';
+      case 'weak': return 'text-orange-600 bg-orange-100';
+      case 'very-weak': return 'text-red-600 bg-red-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
   };
 
   const terminateSession = async (sessionId: string) => {
@@ -353,9 +408,10 @@ const AdminSecurity: React.FC = () => {
 
         {/* Main Content */}
         <Tabs defaultValue="events" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="events">Security Events</TabsTrigger>
             <TabsTrigger value="sessions">Active Sessions</TabsTrigger>
+            <TabsTrigger value="passwords">Password Security</TabsTrigger>
             <TabsTrigger value="settings">Security Settings</TabsTrigger>
           </TabsList>
 
@@ -522,6 +578,202 @@ const AdminSecurity: React.FC = () => {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="passwords" className="space-y-6">
+            {/* Password Security Dashboard */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Security Score</p>
+                      <p className="text-2xl font-bold text-blue-600">{passwordAudit.securityScore}%</p>
+                    </div>
+                    <Shield className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Weak Passwords</p>
+                      <p className="text-2xl font-bold text-red-600">{passwordAudit.weakPasswords}</p>
+                    </div>
+                    <AlertTriangle className="h-8 w-8 text-red-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Expired Passwords</p>
+                      <p className="text-2xl font-bold text-orange-600">{passwordAudit.expiredPasswords}</p>
+                    </div>
+                    <Clock className="h-8 w-8 text-orange-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Total Credentials</p>
+                      <p className="text-2xl font-bold text-gray-900">{passwordAudit.totalCredentials}</p>
+                    </div>
+                    <Lock className="h-8 w-8 text-gray-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Password Generator */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Password Generator</CardTitle>
+                  <CardDescription>Generate secure passwords that meet policy requirements</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      value={newPassword}
+                      onChange={(e) => handlePasswordChange(e.target.value)}
+                      placeholder="Generated password will appear here"
+                      className="flex-1"
+                    />
+                    <Button onClick={generateSecurePassword}>
+                      Generate
+                    </Button>
+                  </div>
+
+                  {passwordStrength && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Password Strength</span>
+                        <Badge className={getPasswordStrengthColor(passwordStrength.strength)}>
+                          {passwordStrength.strength.replace('-', ' ')}
+                        </Badge>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${passwordStrength.score}%` }}
+                        />
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Score: {passwordStrength.score}/100
+                      </div>
+                      {passwordStrength.feedback.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-gray-700">Suggestions:</p>
+                          {passwordStrength.feedback.map((feedback, index) => (
+                            <p key={index} className="text-sm text-gray-600">• {feedback}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Password Policy */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Password Policy</CardTitle>
+                  <CardDescription>Configure password requirements and security rules</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">Min Length</label>
+                      <Input
+                        type="number"
+                        value={passwordPolicy.minLength}
+                        onChange={(e) => updatePasswordPolicy({ minLength: Number(e.target.value) })}
+                        min="8"
+                        max="128"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Max Age (days)</label>
+                      <Input
+                        type="number"
+                        value={passwordPolicy.maxAge}
+                        onChange={(e) => updatePasswordPolicy({ maxAge: Number(e.target.value) })}
+                        min="30"
+                        max="365"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Require Uppercase</label>
+                      <input
+                        type="checkbox"
+                        checked={passwordPolicy.requireUppercase}
+                        onChange={(e) => updatePasswordPolicy({ requireUppercase: e.target.checked })}
+                        className="rounded"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Require Numbers</label>
+                      <input
+                        type="checkbox"
+                        checked={passwordPolicy.requireNumbers}
+                        onChange={(e) => updatePasswordPolicy({ requireNumbers: e.target.checked })}
+                        className="rounded"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Require Special Characters</label>
+                      <input
+                        type="checkbox"
+                        checked={passwordPolicy.requireSpecialChars}
+                        onChange={(e) => updatePasswordPolicy({ requireSpecialChars: e.target.checked })}
+                        className="rounded"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Prevent Common Passwords</label>
+                      <input
+                        type="checkbox"
+                        checked={passwordPolicy.preventCommonPasswords}
+                        onChange={(e) => updatePasswordPolicy({ preventCommonPasswords: e.target.checked })}
+                        className="rounded"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Security Recommendations */}
+            {passwordAudit.recommendations.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Security Recommendations</CardTitle>
+                  <CardDescription>Actions to improve password security</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {passwordAudit.recommendations.map((recommendation, index) => (
+                      <div key={index} className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg">
+                        <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-yellow-800">{recommendation}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">

@@ -267,6 +267,8 @@ function getDefaultSEOConfig(pageId: string, overrides: Partial<SEOConfig> = {})
   const baseConfig = getPageSpecificSEO(pageId);
   
   return {
+    title: baseConfig.title || overrides.title || 'AKIBEKS Engineering Solutions',
+    description: baseConfig.description || overrides.description || 'Leading construction and engineering company in Kenya',
     ...baseConfig,
     ...overrides,
     keywords: [...(baseConfig.keywords || []), ...(overrides.keywords || [])],
