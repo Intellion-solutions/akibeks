@@ -1,19 +1,57 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Clock, 
-  Facebook, 
-  Twitter, 
-  Linkedin, 
-  Instagram,
-  ExternalLink,
-  ArrowUp
-} from 'lucide-react';
+    Facebook, 
+    Twitter, 
+    Linkedin, 
+    Instagram, 
+    Mail, 
+    Phone, 
+    MapPin, 
+    Clock,
+    ArrowUp,
+    ExternalLink
+  } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { APP_CONFIG, PAGES_CONFIG } from '@shared/constants';
+
+// Temporary constants until shared module is fixed
+const APP_CONFIG = {
+  name: 'AKIBEKS Engineering Solutions',
+  contact: {
+    email: 'info@akibeks.co.ke',
+    phone: '+254 700 000 000',
+    address: 'Nairobi, Kenya',
+    workingHours: 'Mon-Fri 8:00 AM - 6:00 PM EAT'
+  },
+  social: {
+    facebook: 'https://facebook.com/akibeksengineering',
+    twitter: 'https://twitter.com/akibekseng',
+    linkedin: 'https://linkedin.com/company/akibeks',
+    instagram: 'https://instagram.com/akibeksengineering'
+  }
+};
+
+const PAGES_CONFIG = {
+  navigation: [
+    { name: 'Home', path: '/', exact: true },
+    { name: 'About', path: '/about' },
+    { name: 'Services', path: '/services' },
+    { name: 'Projects', path: '/projects' },
+    { name: 'Innovation', path: '/innovation' },
+    { name: 'Case Studies', path: '/case-studies' },
+    { name: 'Sustainability', path: '/sustainability' },
+    { name: 'Gallery', path: '/gallery' },
+    { name: 'Blog', path: '/blog' },
+    { name: 'Contact', path: '/contact' }
+  ],
+  footer: [
+    { name: 'Privacy Policy', path: '/privacy' },
+    { name: 'Terms of Service', path: '/terms' },
+    { name: 'Careers', path: '/careers' },
+    { name: 'News', path: '/news' },
+    { name: 'FAQ', path: '/faq' }
+  ]
+};
 
 const Footer = () => {
   const scrollToTop = () => {

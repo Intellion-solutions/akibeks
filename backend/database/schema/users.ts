@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, boolean, uuid, varchar, integer } from 'drizzle-orm/pg-core';
-import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
+// import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
 export const users = pgTable('users', {
@@ -31,20 +31,17 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Zod schemas for validation
-export const insertUserSchema = createInsertSchema(users, {
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  firstName: z.string().min(1, 'First name is required').max(100),
-  lastName: z.string().min(1, 'Last name is required').max(100),
-  phoneNumber: z.string().regex(/^\+254[0-9]{9}$/, 'Invalid Kenyan phone number format').optional(),
-  kraPin: z.string().regex(/^[A-Z][0-9]{9}[A-Z]$/, 'Invalid KRA PIN format').optional(),
-  idNumber: z.string().min(7).max(8).optional(),
-});
+// Temporarily commented out drizzle-zod schemas due to version conflicts
+// export const insertUserSchema = createInsertSchema(users, {
+//   firstName: z.string().min(1).max(100),
+//   lastName: z.string().min(1).max(100),
+//   email: z.string().email(),
+//   phone: z.string().optional(),
+// });
 
-export const selectUserSchema = createSelectSchema(users);
-export const updateUserSchema = insertUserSchema.partial().omit({ id: true, createdAt: true });
+// export const selectUserSchema = createSelectSchema(users);
+// export const updateUserSchema = insertUserSchema.partial().omit({ id: true, createdAt: true });
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
-export type UpdateUser = z.infer<typeof updateUserSchema>;
+// export type UpdateUser = z.infer<typeof updateUserSchema>;

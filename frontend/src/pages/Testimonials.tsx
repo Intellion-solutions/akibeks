@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Star, Quote } from 'lucide-react';
-import { supabase } from '@/lib/db-client';
 import { UserAvatar } from '@/components/ui/user-avatar';
+import { secureDb } from '@/lib/database-secure';
 
 interface Testimonial {
   id: string;
@@ -27,15 +27,28 @@ const Testimonials = () => {
 
   const fetchTestimonials = async () => {
     try {
-      const { data, error } = await supabase
-        .from('testimonials')
-        .select('*')
-        .eq('is_approved', true)
-        .order('is_featured', { ascending: false })
-        .order('created_at', { ascending: false });
+      const { data, error } = await secureDb.getTestimonials({ approved: true });
 
-      if (error) throw error;
-      setTestimonials(data || []);
+      if (error) {
+        console.error('Error fetching testimonials:', error);
+        return;
+      }
+
+      const testimonialsData = Array.isArray(data) ? data : [];
+      
+      // Transform database Testimonial to page Testimonial interface
+      const transformedTestimonials = testimonialsData.map((dbTestimonial: any) => ({
+        id: dbTestimonial.id,
+        client_name: dbTestimonial.clientName || 'Anonymous',
+        client_role: dbTestimonial.company || 'Client',
+        content: dbTestimonial.content || '',
+        rating: dbTestimonial.rating || 5,
+        is_approved: dbTestimonial.isApproved || false,
+        is_featured: dbTestimonial.isFeatured || false,
+        created_at: dbTestimonial.createdAt || new Date().toISOString()
+      }));
+      
+      setTestimonials(transformedTestimonials);
     } catch (error) {
       console.error('Error fetching testimonials:', error);
     } finally {

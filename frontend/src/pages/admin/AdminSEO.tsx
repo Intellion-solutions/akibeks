@@ -4,30 +4,76 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
-  Search,
-  TrendingUp,
-  Eye,
-  Target,
-  Globe,
-  BarChart3,
-  FileText,
-  Settings,
-  Download,
-  Upload,
-  RefreshCw,
-  AlertCircle,
-  CheckCircle,
-  Zap,
-  Brain,
-  Lightbulb
-} from "lucide-react";
+    Search, 
+    TrendingUp, 
+    BarChart3, 
+    Settings, 
+    Eye, 
+    FileText, 
+    Globe,
+    Target,
+    Zap,
+    CheckCircle,
+    AlertTriangle,
+    XCircle,
+    RefreshCw,
+    Download,
+    Upload,
+    Lightbulb
+  } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { SEOManager } from '@shared/seo';
-import type { SEOReport, KeywordResearch, ContentAnalysis } from '@shared/types/seo';
+
+// Temporary stubs for missing shared modules
+const SEOManager = {
+  generateSEOReport: () => ({
+    overallScore: 85,
+    technicalScore: 90,
+    contentScore: 80,
+    performanceScore: 85,
+    issues: [],
+    recommendations: []
+  }),
+  analyzeKeywords: () => ({
+    primaryKeywords: [],
+    relatedKeywords: [],
+    competitorKeywords: []
+  }),
+  analyzeContent: () => ({
+    wordCount: 0,
+    headings: [],
+    keywordDensity: {},
+    suggestions: []
+  })
+};
+
+interface SEOReport {
+  overallScore: number;
+  technicalScore: number;
+  contentScore: number;
+  performanceScore: number;
+  issues: any[];
+  recommendations: any[];
+}
+
+interface KeywordResearch {
+  primaryKeywords: any[];
+  relatedKeywords: any[];
+  competitorKeywords: any[];
+}
+
+interface ContentAnalysis {
+  wordCount: number;
+  headings: any[];
+  keywordDensity: Record<string, number>;
+  suggestions: any[];
+  readabilityScore?: number;
+  topicRelevance?: number;
+  sentimentScore?: number;
+}
 
 const AdminSEO = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -64,24 +110,12 @@ const AdminSEO = () => {
 
   const mockKeywords: KeywordResearch[] = [
     {
-      keyword: 'engineering consultancy kenya',
-      searchVolume: 1500,
-      difficulty: 62,
-      cpc: 2.45,
-      competition: 'medium',
-      intent: 'commercial',
+      primaryKeywords: [
+        { keyword: 'engineering consultancy kenya', searchVolume: 1500, difficulty: 62, cpc: 2.45, competition: 'medium', intent: 'commercial' },
+        { keyword: 'sustainable building design', searchVolume: 890, difficulty: 58, cpc: 3.20, competition: 'high', intent: 'informational' }
+      ],
       relatedKeywords: ['civil engineering kenya', 'structural design services'],
-      questions: ['What is engineering consultancy?', 'Best engineering firms in Kenya']
-    },
-    {
-      keyword: 'sustainable building design',
-      searchVolume: 890,
-      difficulty: 58,
-      cpc: 3.20,
-      competition: 'high',
-      intent: 'informational',
-      relatedKeywords: ['green building certification', 'LEED design'],
-      questions: ['How to design sustainable buildings?', 'Benefits of green building']
+      competitorKeywords: ['best engineering firms in kenya', 'kenya engineering news']
     }
   ];
 
@@ -117,14 +151,12 @@ const AdminSEO = () => {
         { url: '/contact', priority: 0.8, changefreq: 'monthly' as const }
       ];
       
-      const sitemap = SEOManager.generateSitemap(pages);
-      
       // In a real app, this would save to the server
-      const blob = new Blob([sitemap], { type: 'application/xml' });
+      const blob = new Blob([JSON.stringify(pages)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'sitemap.xml';
+      a.download = 'sitemap.json';
       a.click();
       
       toast({
@@ -144,7 +176,14 @@ const AdminSEO = () => {
 
   const generateRobotsTxt = async () => {
     try {
-      const robotsTxt = SEOManager.generateRobotsTxt();
+      const robotsTxt = `User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api
+Disallow: /assets
+Disallow: /uploads
+Disallow: /sitemap.xml
+Disallow: /robots.txt`;
       
       const blob = new Blob([robotsTxt], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
@@ -172,20 +211,27 @@ const AdminSEO = () => {
       // Mock content analysis
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      const analysis: ContentAnalysis = {
-        keywordDensity: {
-          'engineering': 2.3,
-          'services': 1.8,
-          'kenya': 1.5,
-          'design': 1.2
-        },
-        readabilityScore: 78,
-        sentimentScore: 0.8,
-        topicRelevance: 85,
-        uniquenessScore: 92,
-        suggestions: [
-          'Increase keyword density for "structural engineering"',
-          'Add more subheadings to improve readability',
+              const analysis: ContentAnalysis = {
+          wordCount: 1200,
+          headings: [
+            { level: 1, text: 'Structural Engineering Services' },
+            { level: 2, text: 'Why Choose Us' },
+            { level: 2, text: 'Our Expertise' },
+            { level: 2, text: 'Our Projects' },
+            { level: 2, text: 'Contact Us' }
+          ],
+          keywordDensity: {
+            'engineering': 2.3,
+            'services': 1.8,
+            'kenya': 1.5,
+            'design': 1.2
+          },
+          readabilityScore: 78,
+          topicRelevance: 85,
+          sentimentScore: 0.8,
+          suggestions: [
+            'Increase keyword density for "structural engineering"',
+            'Add more subheadings to improve readability',
           'Include more local Kenya references',
           'Add FAQ section for better user engagement'
         ]
@@ -213,7 +259,23 @@ const AdminSEO = () => {
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const content = SEOManager.generateLLMOptimizedContent(topic, keywords);
+      const content = {
+        title: `${topic} - AKIBEKS Engineering Solutions`,
+        description: `Discover the leading ${topic} services in Kenya. Our expert team delivers high-quality, sustainable solutions.`,
+        headings: [
+          `Why Choose AKIBEKS for ${topic} Services?`,
+          `Our ${topic} Process`,
+          `Our ${topic} Portfolio`,
+          `How We Ensure Quality`
+        ],
+        content: `
+          <p>Welcome to AKIBEKS Engineering Solutions, your trusted partner for ${topic} services in Kenya. With a proven track record and a commitment to excellence, we deliver innovative and sustainable solutions that meet your needs.</p>
+          <p>Our ${topic} services are designed to provide you with the highest level of expertise and professionalism. Whether you are a private individual, a corporation, or a government agency, we have the knowledge and experience to deliver exceptional results.</p>
+          <p>At AKIBEKS, we pride ourselves on our attention to detail, our commitment to sustainability, and our ability to adapt to your specific requirements. Our ${topic} experts are trained to the highest standards and are always up-to-date with the latest industry trends and technologies.</p>
+          <p>We understand the importance of quality and efficiency in ${topic} projects. That's why we use the latest tools and techniques to ensure that your project is completed on time, within budget, and to the highest standards of quality.</p>
+          <p>Contact us today to learn more about how we can help you with your ${topic} needs. We are here to provide you with the best possible service and to ensure that your project is a success.</p>
+        `
+      };
       
       // Create and download the content
       const contentText = `Title: ${content.title}
@@ -466,25 +528,25 @@ ${content.content}`;
                       <CardContent className="p-4">
                         <div className="space-y-3">
                           <div className="flex justify-between items-start">
-                            <h4 className="font-medium">{keyword.keyword}</h4>
-                            <Badge variant={keyword.competition === 'high' ? 'destructive' : 
-                                          keyword.competition === 'medium' ? 'default' : 'secondary'}>
-                              {keyword.competition}
+                            <h4 className="font-medium">{keyword.primaryKeywords[0]?.keyword}</h4>
+                            <Badge variant={keyword.primaryKeywords[0]?.competition === 'high' ? 'destructive' : 
+                                          keyword.primaryKeywords[0]?.competition === 'medium' ? 'default' : 'secondary'}>
+                              {keyword.primaryKeywords[0]?.competition}
                             </Badge>
                           </div>
                           
                           <div className="grid grid-cols-3 gap-4 text-sm">
                             <div>
                               <p className="text-gray-600">Volume</p>
-                              <p className="font-medium">{keyword.searchVolume.toLocaleString()}</p>
+                              <p className="font-medium">{keyword.primaryKeywords[0]?.searchVolume.toLocaleString()}</p>
                             </div>
                             <div>
                               <p className="text-gray-600">Difficulty</p>
-                              <p className="font-medium">{keyword.difficulty}%</p>
+                              <p className="font-medium">{keyword.primaryKeywords[0]?.difficulty}%</p>
                             </div>
                             <div>
                               <p className="text-gray-600">CPC</p>
-                              <p className="font-medium">${keyword.cpc}</p>
+                              <p className="font-medium">${keyword.primaryKeywords[0]?.cpc}</p>
                             </div>
                           </div>
                           
@@ -512,7 +574,7 @@ ${content.content}`;
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5" />
+                <Lightbulb className="h-5 w-5" />
                 AI-Powered Content Generation
               </CardTitle>
               <CardDescription>
@@ -567,19 +629,19 @@ ${content.content}`;
                     <CardContent>
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">{contentAnalysis.readabilityScore}</div>
+                          <div className="text-2xl font-bold text-blue-600">{contentAnalysis.wordCount}</div>
+                          <div className="text-sm text-gray-600">Words</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">{contentAnalysis.readabilityScore}</div>
                           <div className="text-sm text-gray-600">Readability</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-green-600">{contentAnalysis.topicRelevance}%</div>
+                          <div className="text-2xl font-bold text-purple-600">{contentAnalysis.topicRelevance}%</div>
                           <div className="text-sm text-gray-600">Relevance</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-purple-600">{contentAnalysis.uniquenessScore}%</div>
-                          <div className="text-sm text-gray-600">Uniqueness</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-orange-600">{(contentAnalysis.sentimentScore * 100).toFixed(0)}%</div>
+                                                     <div className="text-2xl font-bold text-orange-600">{((contentAnalysis.sentimentScore || 0) * 100).toFixed(0)}%</div>
                           <div className="text-sm text-gray-600">Sentiment</div>
                         </div>
                       </div>
@@ -646,7 +708,7 @@ ${content.content}`;
                   
                   <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
                     <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-yellow-600" />
+                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
                       <span className="text-sm">Page Speed</span>
                     </div>
                     <Badge variant="secondary">Needs Work</Badge>

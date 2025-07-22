@@ -28,9 +28,9 @@ import {
   Wrench,
   DollarSign
 } from "lucide-react";
-import { supabase } from "@/lib/db-client";
 import { useToast } from "@/hooks/use-toast";
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import { secureDb } from '@/lib/database-secure';
 
 interface Service {
   id: string;
@@ -79,18 +79,25 @@ const AdminServices: React.FC = () => {
 
   const fetchServices = async () => {
     try {
-      const { data, error } = await supabase
-        .from('services_content')
-        .select('*')
-        .order('display_order', { ascending: true });
+      const result = await secureDb.getServices();
+      const { data, error } = result;
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching services:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch services",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Transform the data to match the expected interface
-      const transformedData = (data || []).map(item => ({
+      const servicesData = Array.isArray(data) ? data : [];
+      const transformedData = servicesData.map((item: any) => ({
         ...item,
         features: Array.isArray(item.features) ? 
-          item.features.filter((f): f is string => typeof f === 'string') : 
+          item.features.filter((f: any): f is string => typeof f === 'string') : 
           [],
       }));
       
@@ -170,28 +177,24 @@ const AdminServices: React.FC = () => {
       setLoading(true);
 
       const serviceData = {
-        title: formData.title,
+        name: formData.title,
         description: formData.description,
         category: formData.category,
-        icon: formData.icon,
-        base_price: parseFloat(formData.base_price || '0'),
-        price_unit: formData.price_unit,
+        basePrice: parseFloat(formData.base_price || '0'),
         features: formData.features.split(',').map(f => f.trim()),
-        is_active: formData.is_active,
-        is_featured: formData.is_featured,
-        display_order: parseInt(formData.display_order || '0'),
-        seo_title: formData.seo_title,
-        seo_description: formData.seo_description
+        isActive: formData.is_active,
+        duration: parseInt(formData.display_order || '30'), // Use display_order as duration for now
+        requirements: [], // Default empty array
+        deliverables: [] // Default empty array
       };
 
       if (editingService) {
         // Update existing service
-        const { error } = await supabase
-          .from('services_content')
-          .update(serviceData)
-          .eq('id', editingService.id);
+        const { error } = await secureDb.updateService(editingService.id, serviceData);
 
-        if (error) throw error;
+        if (error) {
+          throw new Error(error);
+        }
 
         toast({
           title: "Success",
@@ -199,11 +202,11 @@ const AdminServices: React.FC = () => {
         });
       } else {
         // Create new service
-        const { error } = await supabase
-          .from('services_content')
-          .insert([serviceData]);
+        const { error } = await secureDb.createService(serviceData);
 
-        if (error) throw error;
+        if (error) {
+          throw new Error(error);
+        }
 
         toast({
           title: "Success",
@@ -248,12 +251,11 @@ const AdminServices: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this service?')) {
       try {
         setLoading(true);
-        const { error } = await supabase
-          .from('services_content')
-          .delete()
-          .eq('id', serviceId);
+        const { error } = await secureDb.deleteService(serviceId);
 
-        if (error) throw error;
+        if (error) {
+          throw new Error(error);
+        }
 
         toast({
           title: "Success",
@@ -276,12 +278,11 @@ const AdminServices: React.FC = () => {
   const toggleActive = async (service: Service) => {
     try {
       setLoading(true);
-      const { error } = await supabase
-        .from('services_content')
-        .update({ is_active: !service.is_active })
-        .eq('id', service.id);
+      const { error } = await secureDb.updateService(service.id, { isActive: !service.is_active });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(error);
+      }
 
       toast({
         title: "Success",
@@ -301,30 +302,12 @@ const AdminServices: React.FC = () => {
   };
 
   const toggleFeatured = async (service: Service) => {
-    try {
-      setLoading(true);
-      const { error } = await supabase
-        .from('services_content')
-        .update({ is_featured: !service.is_featured })
-        .eq('id', service.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: `Service ${service.is_featured ? 'unfeatured' : 'featured'} successfully`,
-      });
-      fetchServices();
-    } catch (error) {
-      console.error('Error toggling featured status:', error);
-      toast({
-        title: "Error",
-        description: "Failed to toggle featured status",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
+    // Featured functionality not available in current database schema
+    toast({
+      title: "Info",
+      description: "Featured functionality not available",
+      variant: "default"
+    });
   };
 
   if (loading) {

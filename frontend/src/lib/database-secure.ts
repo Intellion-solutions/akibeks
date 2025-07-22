@@ -624,6 +624,16 @@ export class SecureDatabaseClient {
     return result;
   }
 
+  async deleteService(id: string): Promise<SecureResponse<void>> {
+    const result = await this.http.delete<void>(`/services/${id}`);
+    
+    if (result.success) {
+      await this.logAction('delete', 'service', id);
+    }
+    
+    return result;
+  }
+
   // Users
   async getUsers(options?: {
     limit?: number;
@@ -809,8 +819,9 @@ export class SecureDatabaseClient {
 
     // Use a public method for file uploads
     const headers: Record<string, string> = {};
-    if (this.http.authToken) {
-      headers.Authorization = `Bearer ${this.http.authToken}`;
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
     }
 
     try {

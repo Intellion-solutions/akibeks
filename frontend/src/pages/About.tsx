@@ -216,8 +216,7 @@ const About = () => {
           "construction company history",
           "Kenya construction experts",
           "building company Kenya"
-        ],
-        type: "website"
+        ]
       }}
     >
       <div className="min-h-screen bg-white">

@@ -9,21 +9,21 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 // Import routes
-import authRoutes from './routes/auth.routes.js';
-import projectRoutes from './routes/project.routes.js';
-import serviceRoutes from './routes/service.routes.js';
-import contactRoutes from './routes/contact.routes.js';
-import testimonialRoutes from './routes/testimonial.routes.js';
-import uploadRoutes from './routes/upload.routes.js';
-import emailRoutes from './routes/email.routes.js';
+import authRoutes from './routes/auth.routes';
+import projectRoutes from './routes/project.routes';
+import serviceRoutes from './routes/service.routes';
+import contactRoutes from './routes/contact.routes';
+import testimonialRoutes from './routes/testimonial.routes';
+import uploadRoutes from './routes/upload.routes';
+import emailRoutes from './routes/email.routes';
 
 // Import middleware
-import { errorHandler } from './middleware/error.middleware.js';
-import { notFoundHandler } from './middleware/notFound.middleware.js';
-import { authMiddleware } from './middleware/auth.middleware.js';
+import { errorHandler } from './middleware/error.middleware';
+import { notFoundHandler } from './middleware/notFound.middleware';
+import { authMiddleware } from './middleware/auth.middleware';
 
 // Import services
-import { DatabaseService } from './services/database.service.js';
+import { DatabaseService } from '../services/database.service';
 
 // Load environment variables
 dotenv.config();

@@ -262,9 +262,11 @@ const Portfolio = () => {
 
   return (
     <SEOWrapper
-      title="Portfolio - AKIBEKS Engineering Solutions"
-      description="Explore our portfolio of completed and ongoing engineering projects across Kenya. From commercial buildings to infrastructure development."
-      keywords="portfolio, projects, engineering, construction, Kenya, commercial, residential, infrastructure"
+      config={{
+        title: "Portfolio - AKIBEKS Engineering Solutions",
+        description: "Explore our portfolio of completed and ongoing engineering projects across Kenya. From commercial buildings to infrastructure development.",
+        keywords: ["portfolio", "projects", "engineering", "construction", "Kenya", "commercial", "residential", "infrastructure"]
+      }}
     >
       <div className="min-h-screen bg-gray-50">
         <Navbar />

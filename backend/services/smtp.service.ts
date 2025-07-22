@@ -12,7 +12,7 @@ const createTransporter = () => {
     throw new Error('Invalid SMTP configuration');
   }
   
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     ...smtpConfigModule.smtp,
     tls: smtpConfigModule.smtp.tls
   });
@@ -150,21 +150,86 @@ export class SMTPService {
     company?: string;
     phone?: string;
   }): Promise<ApiResponse<EmailLog>> {
-    const emailContent = `
-      <h2>New Contact Form Submission</h2>
-      <p><strong>Name:</strong> ${contactData.name}</p>
-      <p><strong>Email:</strong> ${contactData.email}</p>
-      ${contactData.company ? `<p><strong>Company:</strong> ${contactData.company}</p>` : ''}
-      ${contactData.phone ? `<p><strong>Phone:</strong> ${contactData.phone}</p>` : ''}
-      <p><strong>Message:</strong></p>
-      <p>${contactData.message}</p>
-    `;
+    try {
+      const subject = `New Contact Form Submission from ${contactData.name}`;
+      const message = `
+        <h2>New Contact Form Submission</h2>
+        <p><strong>Name:</strong> ${contactData.name}</p>
+        <p><strong>Email:</strong> ${contactData.email}</p>
+        ${contactData.company ? `<p><strong>Company:</strong> ${contactData.company}</p>` : ''}
+        ${contactData.phone ? `<p><strong>Phone:</strong> ${contactData.phone}</p>` : ''}
+        <p><strong>Message:</strong></p>
+        <p>${contactData.message}</p>
+      `;
 
-    return await this.sendEmail({
-      to: process.env.ADMIN_EMAIL || 'admin@akibeks.co.ke',
-      subject: `New Contact Form Submission from ${contactData.name}`,
-      message: emailContent
+      return await this.sendEmail({
+        to: smtpConfigModule.smtp.auth.user, // Send to admin
+        subject,
+        message
+      });
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send contact notification'
+      };
+    }
+  }
+
+  /**
+   * Send contact email (compatibility method)
+   */
+  static async sendContactEmail(contactData: {
+    name: string;
+    email: string;
+    phone?: string;
+    subject: string;
+    message: string;
+  }): Promise<any> {
+    return await this.sendContactNotification({
+      name: contactData.name,
+      email: contactData.email,
+      phone: contactData.phone,
+      message: contactData.message
     });
+  }
+
+  /**
+   * Send quote request email (compatibility method)
+   */
+  static async sendQuoteEmail(quoteData: {
+    name: string;
+    email: string;
+    phone?: string;
+    service: string;
+    budget?: string;
+    timeline?: string;
+    description: string;
+  }): Promise<any> {
+    try {
+      const subject = `New Quote Request from ${quoteData.name}`;
+      const message = `
+        <h2>New Quote Request</h2>
+        <p><strong>Name:</strong> ${quoteData.name}</p>
+        <p><strong>Email:</strong> ${quoteData.email}</p>
+        ${quoteData.phone ? `<p><strong>Phone:</strong> ${quoteData.phone}</p>` : ''}
+        <p><strong>Service:</strong> ${quoteData.service}</p>
+        ${quoteData.budget ? `<p><strong>Budget:</strong> ${quoteData.budget}</p>` : ''}
+        ${quoteData.timeline ? `<p><strong>Timeline:</strong> ${quoteData.timeline}</p>` : ''}
+        <p><strong>Description:</strong></p>
+        <p>${quoteData.description}</p>
+      `;
+
+      return await this.sendEmail({
+        to: smtpConfigModule.smtp.auth.user, // Send to admin
+        subject,
+        message
+      });
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send quote email'
+      };
+    }
   }
 
   /**

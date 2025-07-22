@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Phone, Linkedin, Twitter } from "lucide-react";
-import { supabase } from "@/lib/db-client";
+import { secureDb } from "@/lib/database-secure";
 
 interface TeamMember {
   id: string;
@@ -26,14 +26,26 @@ const Team = () => {
 
   const fetchTeamMembers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('is_active', true)
-        .order('role', { ascending: true });
+      const { data, error } = await secureDb.getUsers({ isActive: true });
 
-      if (error) throw error;
-      setTeamMembers(data || []);
+      if (error) {
+        console.error('Error fetching team members:', error);
+        return;
+      }
+
+      const membersData = Array.isArray(data) ? data : [];
+      
+      // Transform database User to TeamMember interface
+      const transformedMembers = membersData.map((dbUser: any) => ({
+        id: dbUser.id,
+        full_name: `${dbUser.firstName || ''} ${dbUser.lastName || ''}`.trim() || 'Unknown User',
+        email: dbUser.email || '',
+        phone: dbUser.phone || '',
+        role: dbUser.role || 'viewer',
+        avatar_url: dbUser.profileImage || ''
+      }));
+      
+      setTeamMembers(transformedMembers);
     } catch (error) {
       console.error('Error fetching team members:', error);
     } finally {

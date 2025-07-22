@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, boolean, uuid, varchar, integer, decimal, json } from 'drizzle-orm/pg-core';
-import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
+// import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 import { users } from './users';
 
@@ -71,29 +71,26 @@ export const projectTasks = pgTable('project_tasks', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Zod schemas
-export const insertProjectSchema = createInsertSchema(projects, {
-  title: z.string().min(1, 'Project title is required').max(255),
-  budgetKes: z.string().transform(val => parseFloat(val)),
-  completionPercentage: z.number().min(0).max(100),
-  location: z.string().min(1, 'Location is required'),
-});
+// Temporarily commented out drizzle-zod schemas due to version conflicts
+// export const insertProjectSchema = createInsertSchema(projects, {
+//   title: z.string().min(1).max(255),
+//   budgetKes: z.coerce.number().positive(),
+//   completionPercentage: z.number().min(0).max(100),
+// });
 
-export const insertMilestoneSchema = createInsertSchema(projectMilestones, {
-  title: z.string().min(1, 'Milestone title is required'),
-  dueDate: z.date(),
-  progress: z.number().min(0).max(100),
-});
+// export const insertMilestoneSchema = createInsertSchema(projectMilestones, {
+//   title: z.string().min(1).max(255),
+//   dueDate: z.string().datetime(),
+// });
 
-export const insertTaskSchema = createInsertSchema(projectTasks, {
-  title: z.string().min(1, 'Task title is required'),
-  estimatedHours: z.number().min(0).optional(),
-  actualHours: z.number().min(0).optional(),
-});
+// export const insertTaskSchema = createInsertSchema(projectTasks, {
+//   title: z.string().min(1).max(255),
+//   dueDate: z.string().datetime(),
+// });
 
-export const selectProjectSchema = createSelectSchema(projects);
-export const selectMilestoneSchema = createSelectSchema(projectMilestones);
-export const selectTaskSchema = createSelectSchema(projectTasks);
+// export const selectProjectSchema = createSelectSchema(projects);
+// export const selectMilestoneSchema = createSelectSchema(projectMilestones);
+// export const selectTaskSchema = createSelectSchema(projectTasks);
 
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;

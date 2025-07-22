@@ -4,8 +4,8 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { loginSchema, registerSchema } from '../../../shared/schemas';
 import { HTTP_STATUS, USER_ROLES } from '../../../shared/constants';
-import { DatabaseService } from '../services/database.service.js';
-import { asyncHandler } from '../middleware/error.middleware.js';
+import { DatabaseService } from '../../services/database.service';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 

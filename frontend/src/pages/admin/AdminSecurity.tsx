@@ -702,11 +702,11 @@ const AdminSecurity: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Max Age (days)</label>
+                      <label className="text-sm font-medium">Expiration (days)</label>
                       <Input
                         type="number"
-                        value={passwordPolicy.maxAge}
-                        onChange={(e) => updatePasswordPolicy({ maxAge: Number(e.target.value) })}
+                        value={passwordPolicy.expirationDays}
+                        onChange={(e) => updatePasswordPolicy({ expirationDays: Number(e.target.value) })}
                         min="30"
                         max="365"
                       />

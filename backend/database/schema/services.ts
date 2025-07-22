@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, boolean, uuid, varchar, integer, decimal, json } from 'drizzle-orm/pg-core';
-import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
+// import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
 export const services = pgTable('services', {
@@ -51,24 +51,22 @@ export const serviceInquiries = pgTable('service_inquiries', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Zod schemas
-export const insertServiceSchema = createInsertSchema(services, {
-  title: z.string().min(1, 'Service title is required').max(255),
-  description: z.string().min(1, 'Service description is required'),
-  category: z.string().min(1, 'Category is required'),
-  priceRangeMin: z.string().transform(val => val ? parseFloat(val) : undefined).optional(),
-  priceRangeMax: z.string().transform(val => val ? parseFloat(val) : undefined).optional(),
-});
+// Temporarily commented out drizzle-zod schemas due to version conflicts
+// export const insertServiceSchema = createInsertSchema(services, {
+//   name: z.string().min(1).max(255),
+//   description: z.string().min(1),
+//   basePrice: z.number().positive(),
+//   duration: z.number().positive(),
+// });
 
-export const insertServiceInquirySchema = createInsertSchema(serviceInquiries, {
-  name: z.string().min(1, 'Name is required').max(255),
-  email: z.string().email('Invalid email format'),
-  phoneNumber: z.string().regex(/^\+254[0-9]{9}$/, 'Invalid Kenyan phone number format').optional(),
-  projectDescription: z.string().min(1, 'Project description is required'),
-});
+// export const insertServiceInquirySchema = createInsertSchema(serviceInquiries, {
+//   clientName: z.string().min(1).max(255),
+//   clientEmail: z.string().email(),
+//   message: z.string().min(1),
+// });
 
-export const selectServiceSchema = createSelectSchema(services);
-export const selectServiceInquirySchema = createSelectSchema(serviceInquiries);
+// export const selectServiceSchema = createSelectSchema(services);
+// export const selectServiceInquirySchema = createSelectSchema(serviceInquiries);
 
 export type Service = typeof services.$inferSelect;
 export type NewService = typeof services.$inferInsert;

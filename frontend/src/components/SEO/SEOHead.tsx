@@ -1,7 +1,33 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-import { SEOManager } from '@shared/seo';
-import type { PageSEO, BreadcrumbItem, FAQItem } from '@shared/types/seo';
+
+// Temporary stubs for missing shared modules
+const SEOManager = {
+  generateMetaTags: () => ({}),
+  generateStructuredData: () => ({}),
+  generateOpenGraphTags: () => ({}),
+  generateTwitterTags: () => ({})
+};
+
+interface PageSEO {
+  title?: string;
+  description?: string;
+  keywords?: string[];
+  canonical?: string;
+  ogImage?: string;
+  noindex?: boolean;
+  nofollow?: boolean;
+}
+
+interface BreadcrumbItem {
+  name: string;
+  url: string;
+}
+
+interface FAQItem {
+  question: string;
+  answer: string;
+}
 
 interface SEOHeadProps {
   title?: string;
@@ -34,39 +60,69 @@ const SEOHead: React.FC<SEOHeadProps> = ({
   structuredData = [],
   alternateUrls
 }) => {
-  const seoTitle = SEOManager.generateTitle(title);
-  const seoDescription = SEOManager.generateDescription(description);
-  const seoKeywords = SEOManager.generateKeywords(keywords);
-  const canonicalUrl = canonical || SEOManager.generateCanonicalUrl(url || '');
+  const seoTitle = title || 'AKIBEKS Engineering Solutions';
+  const seoDescription = description || 'Leading construction and engineering company in Kenya';
+  const seoKeywords = keywords?.join(', ') || 'construction, engineering, Kenya';
+  const canonicalUrl = canonical || `https://akibeks.co.ke${url || ''}`;
   
-  const openGraph = SEOManager.generateOpenGraph({
-    title: seoTitle,
-    description: seoDescription,
-    image,
-    url: canonicalUrl,
-    type
-  });
-  
-  const twitterCard = SEOManager.generateTwitterCard({
-    title: seoTitle,
-    description: seoDescription,
-    image
-  });
+      const openGraph = {
+      title: seoTitle,
+      description: seoDescription,
+      image,
+      url: canonicalUrl,
+      type: type || 'website',
+      siteName: 'AKIBEKS Engineering Solutions',
+      locale: 'en_US'
+    };
+    
+    const twitterCard = {
+      title: seoTitle,
+      description: seoDescription,
+      image,
+      card: 'summary_large_image',
+      site: '@akibekseng',
+      creator: '@akibekseng'
+    };
 
   // Generate structured data
   const allStructuredData = [...structuredData];
   
   // Add organization structured data
-  allStructuredData.push(JSON.parse(SEOManager.generateStructuredData('organization')));
+  allStructuredData.push({
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'AKIBEKS Engineering Solutions',
+    url: 'https://akibeks.co.ke'
+  });
   
   // Add breadcrumbs if provided
   if (breadcrumbs && breadcrumbs.length > 0) {
-    allStructuredData.push(JSON.parse(SEOManager.generateStructuredData('breadcrumb', breadcrumbs)));
+    allStructuredData.push({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: breadcrumbs.map((item, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: item.name,
+        item: item.url
+      }))
+    });
   }
   
   // Add FAQs if provided
   if (faqs && faqs.length > 0) {
-    allStructuredData.push(JSON.parse(SEOManager.generateStructuredData('faq', faqs)));
+    allStructuredData.push({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqs.map(faq => ({
+        '@type': 'Question',
+        name: faq.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: faq.answer
+        }
+      }))
+    });
   }
 
   return (

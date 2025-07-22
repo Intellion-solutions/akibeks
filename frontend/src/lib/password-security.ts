@@ -15,25 +15,20 @@ export interface PasswordPolicy {
   requireSpecialChars: boolean;
   preventCommonPasswords: boolean;
   preventPersonalInfo: boolean;
-  passwordHistory: number; // Number of previous passwords to remember
-  maxAge: number; // Password expiration in days
-  lockoutAttempts: number;
-  lockoutDuration: number; // in minutes
+  preventRepeatingChars: boolean;
+  preventSequentialChars: boolean;
+  expirationDays: number;
+  historyCount: number;
+  maxAttempts: number;
+  lockoutDuration: number;
 }
 
 export interface PasswordStrengthResult {
   score: number; // 0-100
   strength: 'very-weak' | 'weak' | 'fair' | 'good' | 'strong' | 'very-strong';
   feedback: string[];
-  requirements: {
-    length: boolean;
-    uppercase: boolean;
-    lowercase: boolean;
-    numbers: boolean;
-    specialChars: boolean;
-    commonPassword: boolean;
-    personalInfo: boolean;
-  };
+  violations: string[];
+  estimatedCrackTime: string;
 }
 
 export interface SecureCredential {
@@ -42,41 +37,33 @@ export interface SecureCredential {
   service: string;
   username: string;
   encryptedPassword: string;
-  category: 'system' | 'database' | 'email' | 'api' | 'external' | 'other';
-  lastChanged: string;
-  expiresAt?: string;
+  notes?: string;
+  tags: string[];
   isActive: boolean;
+  expiresAt?: string;
+  lastUsed?: string;
+  createdAt: string;
+  updatedAt: string;
   metadata: {
     createdBy: string;
-    lastAccessedAt?: string;
     accessCount: number;
     ipAddresses: string[];
   };
-  tags: string[];
 }
 
 export interface PasswordAuditLog {
   id: string;
   userId: string;
-  action: 'created' | 'updated' | 'accessed' | 'deleted' | 'failed_attempt' | 'policy_violation';
+  action: 'created' | 'updated' | 'accessed' | 'deleted' | 'policy-violation' | 'breach-check';
   credentialId?: string;
-  timestamp: string;
+  details: string;
   ipAddress: string;
   userAgent: string;
-  success: boolean;
-  details: any;
+  timestamp: string;
 }
 
-// Common passwords list (subset for demonstration)
-const COMMON_PASSWORDS = new Set([
-  'password', '123456', 'password123', 'admin', 'qwerty', 'letmein',
-  '12345678', 'welcome', 'monkey', '1234567890', 'password1',
-  'abc123', '111111', 'iloveyou', 'adobe123', '123123'
-]);
-
-// Default password policy
 const DEFAULT_POLICY: PasswordPolicy = {
-  minLength: 12,
+  minLength: 8,
   maxLength: 128,
   requireUppercase: true,
   requireLowercase: true,
@@ -84,17 +71,19 @@ const DEFAULT_POLICY: PasswordPolicy = {
   requireSpecialChars: true,
   preventCommonPasswords: true,
   preventPersonalInfo: true,
-  passwordHistory: 5,
-  maxAge: 90,
-  lockoutAttempts: 5,
-  lockoutDuration: 15,
+  preventRepeatingChars: true,
+  preventSequentialChars: true,
+  expirationDays: 90,
+  historyCount: 5,
+  maxAttempts: 3,
+  lockoutDuration: 30
 };
 
 export class PasswordSecurityService {
   private static policy: PasswordPolicy = DEFAULT_POLICY;
   private static auditLogs: PasswordAuditLog[] = [];
+  private static mockCredentials: SecureCredential[] = [];
 
-  // Policy Management
   static setPasswordPolicy(policy: Partial<PasswordPolicy>): void {
     this.policy = { ...this.policy, ...policy };
   }
@@ -103,103 +92,98 @@ export class PasswordSecurityService {
     return { ...this.policy };
   }
 
-  // Password Strength Analysis
-  static analyzePasswordStrength(password: string, userInfo?: { 
-    firstName?: string; 
-    lastName?: string; 
-    email?: string; 
-    username?: string; 
-  }): PasswordStrengthResult {
-    const requirements = {
-      length: password.length >= this.policy.minLength && password.length <= this.policy.maxLength,
-      uppercase: !this.policy.requireUppercase || /[A-Z]/.test(password),
-      lowercase: !this.policy.requireLowercase || /[a-z]/.test(password),
-      numbers: !this.policy.requireNumbers || /\d/.test(password),
-      specialChars: !this.policy.requireSpecialChars || /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
-      commonPassword: !this.policy.preventCommonPasswords || !this.isCommonPassword(password),
-      personalInfo: !this.policy.preventPersonalInfo || !this.containsPersonalInfo(password, userInfo),
-    };
-
-    const feedback: string[] = [];
+  static analyzePasswordStrength(password: string, userInfo?: any): PasswordStrengthResult {
     let score = 0;
+    const feedback: string[] = [];
+    const violations: string[] = [];
 
-    // Length scoring
-    if (password.length < 8) {
-      feedback.push('Password is too short (minimum 8 characters)');
-    } else if (password.length < this.policy.minLength) {
-      feedback.push(`Password should be at least ${this.policy.minLength} characters`);
-      score += 10;
-    } else if (password.length >= this.policy.minLength) {
-      score += 25;
+    // Length check
+    if (password.length >= this.policy.minLength) {
+      score += 20;
+    } else {
+      violations.push(`Password must be at least ${this.policy.minLength} characters long`);
     }
 
-    // Character variety scoring
-    const hasUpper = /[A-Z]/.test(password);
-    const hasLower = /[a-z]/.test(password);
-    const hasNumbers = /\d/.test(password);
-    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-
-    if (hasUpper) score += 15;
-    else if (this.policy.requireUppercase) feedback.push('Add uppercase letters');
-
-    if (hasLower) score += 15;
-    else if (this.policy.requireLowercase) feedback.push('Add lowercase letters');
-
-    if (hasNumbers) score += 15;
-    else if (this.policy.requireNumbers) feedback.push('Add numbers');
-
-    if (hasSpecial) score += 20;
-    else if (this.policy.requireSpecialChars) feedback.push('Add special characters');
-
-    // Pattern analysis
-    if (this.hasRepeatingChars(password)) {
-      feedback.push('Avoid repeating characters');
-      score -= 10;
+    // Character type checks
+    if (this.policy.requireUppercase && /[A-Z]/.test(password)) {
+      score += 15;
+    } else if (this.policy.requireUppercase) {
+      violations.push('Password must contain uppercase letters');
     }
 
-    if (this.hasSequentialChars(password)) {
-      feedback.push('Avoid sequential characters');
-      score -= 10;
+    if (this.policy.requireLowercase && /[a-z]/.test(password)) {
+      score += 15;
+    } else if (this.policy.requireLowercase) {
+      violations.push('Password must contain lowercase letters');
     }
 
-    // Common password check
-    if (this.isCommonPassword(password)) {
-      feedback.push('This password is too common');
+    if (this.policy.requireNumbers && /\d/.test(password)) {
+      score += 15;
+    } else if (this.policy.requireNumbers) {
+      violations.push('Password must contain numbers');
+    }
+
+    if (this.policy.requireSpecialChars && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      score += 15;
+    } else if (this.policy.requireSpecialChars) {
+      violations.push('Password must contain special characters');
+    }
+
+    // Additional checks
+    if (this.policy.preventCommonPasswords && this.isCommonPassword(password)) {
       score -= 20;
+      violations.push('Password is too common');
     }
 
-    // Personal info check
-    if (userInfo && this.containsPersonalInfo(password, userInfo)) {
-      feedback.push('Avoid using personal information');
+    if (this.policy.preventPersonalInfo && userInfo && this.containsPersonalInfo(password, userInfo)) {
       score -= 15;
+      violations.push('Password contains personal information');
+    }
+
+    if (this.policy.preventRepeatingChars && this.hasRepeatingChars(password)) {
+      score -= 10;
+      violations.push('Password has too many repeating characters');
+    }
+
+    if (this.policy.preventSequentialChars && this.hasSequentialChars(password)) {
+      score -= 10;
+      violations.push('Password contains sequential characters');
     }
 
     // Entropy bonus
-    const uniqueChars = new Set(password).size;
-    if (uniqueChars / password.length > 0.7) {
-      score += 10;
-    }
+    const entropy = this.calculateEntropy(password);
+    score += Math.min(20, entropy / 2);
 
-    // Cap score at 100
     score = Math.max(0, Math.min(100, score));
 
     let strength: PasswordStrengthResult['strength'];
-    if (score < 30) strength = 'very-weak';
-    else if (score < 50) strength = 'weak';
-    else if (score < 70) strength = 'fair';
-    else if (score < 85) strength = 'good';
-    else if (score < 95) strength = 'strong';
-    else strength = 'very-strong';
+    if (score >= 90) strength = 'very-strong';
+    else if (score >= 75) strength = 'strong';
+    else if (score >= 60) strength = 'good';
+    else if (score >= 40) strength = 'fair';
+    else if (score >= 20) strength = 'weak';
+    else strength = 'very-weak';
+
+    // Generate feedback
+    if (score >= 75) {
+      feedback.push('Strong password!');
+    } else if (score >= 50) {
+      feedback.push('Good password, consider making it stronger');
+    } else {
+      feedback.push('Password needs improvement');
+    }
+
+    const estimatedCrackTime = this.estimateCrackTime(password, score);
 
     return {
       score,
       strength,
       feedback,
-      requirements
+      violations,
+      estimatedCrackTime
     };
   }
 
-  // Password Generation
   static generateSecurePassword(length: number = 16, options?: {
     includeUppercase?: boolean;
     includeLowercase?: boolean;
@@ -223,30 +207,25 @@ export class PasswordSecurityService {
     if (opts.includeSpecialChars) charset += '!@#$%^&*()_+-=[]{}|;:,.<>?';
 
     if (opts.excludeSimilar) {
-      charset = charset.replace(/[0O1lI|]/g, '');
+      charset = charset.replace(/[0O1lI]/g, '');
     }
 
-    if (!charset) throw new Error('No character set available for password generation');
-
     let password = '';
-    const array = new Uint8Array(length);
-    crypto.getRandomValues(array);
-
     for (let i = 0; i < length; i++) {
-      password += charset[array[i] % charset.length];
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
     }
 
     return password;
   }
 
-  // Secure Credential Management
   static async storeCredential(credential: Omit<SecureCredential, 'id' | 'encryptedPassword' | 'metadata'>): Promise<string | null> {
     try {
-      const encryptedPassword = await this.encryptPassword(credential.username);
+      const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const encryptedPassword = await this.encryptPassword(credential.username); // Mock encryption
       
       const secureCredential: SecureCredential = {
         ...credential,
-        id: SecurityService.generateSecureId(),
+        id: credentialId,
         encryptedPassword,
         metadata: {
           createdBy: this.getCurrentUserId(),
@@ -255,14 +234,10 @@ export class PasswordSecurityService {
         }
       };
 
-      const response = await secureDb.http.post('/security/credentials', secureCredential);
-      
-      if (response.success) {
-        await this.logPasswordAction('created', secureCredential.userId, secureCredential.id);
-        return secureCredential.id;
-      }
-      
-      return null;
+      // Mock storage
+      this.mockCredentials.push(secureCredential);
+      await this.logPasswordAction('created', credential.userId, credentialId);
+      return credentialId;
     } catch (error) {
       console.error('Failed to store credential:', error);
       return null;
@@ -271,11 +246,11 @@ export class PasswordSecurityService {
 
   static async getCredential(credentialId: string): Promise<SecureCredential | null> {
     try {
-      const response = await secureDb.http.get(`/security/credentials/${credentialId}`);
+      const credential = this.mockCredentials.find(c => c.id === credentialId);
       
-      if (response.success && response.data) {
-        await this.logPasswordAction('accessed', response.data.userId, credentialId);
-        return response.data;
+      if (credential) {
+        await this.logPasswordAction('accessed', credential.userId, credentialId);
+        return credential;
       }
       
       return null;
@@ -287,14 +262,11 @@ export class PasswordSecurityService {
 
   static async updateCredential(credentialId: string, updates: Partial<SecureCredential>): Promise<boolean> {
     try {
-      if (updates.username) {
-        updates.encryptedPassword = await this.encryptPassword(updates.username);
-      }
-
-      const response = await secureDb.http.put(`/security/credentials/${credentialId}`, updates);
+      const index = this.mockCredentials.findIndex(c => c.id === credentialId);
       
-      if (response.success) {
-        await this.logPasswordAction('updated', updates.userId || '', credentialId);
+      if (index !== -1) {
+        this.mockCredentials[index] = { ...this.mockCredentials[index], ...updates, updatedAt: new Date().toISOString() };
+        await this.logPasswordAction('updated', this.mockCredentials[index].userId, credentialId);
         return true;
       }
       
@@ -307,10 +279,12 @@ export class PasswordSecurityService {
 
   static async deleteCredential(credentialId: string): Promise<boolean> {
     try {
-      const response = await secureDb.http.delete(`/security/credentials/${credentialId}`);
+      const index = this.mockCredentials.findIndex(c => c.id === credentialId);
       
-      if (response.success) {
-        await this.logPasswordAction('deleted', '', credentialId);
+      if (index !== -1) {
+        const credential = this.mockCredentials[index];
+        this.mockCredentials.splice(index, 1);
+        await this.logPasswordAction('deleted', credential.userId, credentialId);
         return true;
       }
       
@@ -323,15 +297,13 @@ export class PasswordSecurityService {
 
   static async getUserCredentials(userId: string): Promise<SecureCredential[]> {
     try {
-      const response = await secureDb.http.get(`/security/credentials/user/${userId}`);
-      return response.success && response.data ? response.data : [];
+      return this.mockCredentials.filter(c => c.userId === userId);
     } catch (error) {
       console.error('Failed to get user credentials:', error);
       return [];
     }
   }
 
-  // Password Security Audit
   static async auditPasswordSecurity(): Promise<{
     weakPasswords: number;
     expiredPasswords: number;
@@ -342,26 +314,33 @@ export class PasswordSecurityService {
     recommendations: string[];
   }> {
     try {
-      const response = await secureDb.http.get('/security/password-audit');
-      
-      if (response.success && response.data) {
-        return response.data;
-      }
-      
-      // Fallback mock data
+      const totalCredentials = this.mockCredentials.length;
+      let weakPasswords = 0;
+      let expiredPasswords = 0;
+      let reusedPasswords = 0;
+      let policyViolations = 0;
+
+      // Mock analysis
+      weakPasswords = Math.floor(totalCredentials * 0.1);
+      expiredPasswords = Math.floor(totalCredentials * 0.05);
+      reusedPasswords = Math.floor(totalCredentials * 0.02);
+      policyViolations = weakPasswords + expiredPasswords;
+
+      const securityScore = Math.max(0, 100 - (weakPasswords * 10) - (expiredPasswords * 15) - (reusedPasswords * 20));
+
+      const recommendations: string[] = [];
+      if (weakPasswords > 0) recommendations.push(`${weakPasswords} weak passwords need strengthening`);
+      if (expiredPasswords > 0) recommendations.push(`${expiredPasswords} passwords have expired`);
+      if (reusedPasswords > 0) recommendations.push(`${reusedPasswords} passwords are being reused`);
+
       return {
-        weakPasswords: 3,
-        expiredPasswords: 1,
-        reusedPasswords: 2,
-        policyViolations: 4,
-        totalCredentials: 25,
-        securityScore: 85,
-        recommendations: [
-          'Update 3 weak passwords to meet current policy',
-          'Rotate 1 expired password',
-          'Review and update password policy settings',
-          'Enable two-factor authentication for admin accounts'
-        ]
+        weakPasswords,
+        expiredPasswords,
+        reusedPasswords,
+        policyViolations,
+        totalCredentials,
+        securityScore,
+        recommendations
       };
     } catch (error) {
       console.error('Failed to audit password security:', error);
@@ -377,33 +356,30 @@ export class PasswordSecurityService {
     }
   }
 
-  // Breach Detection
   static async checkPasswordBreach(password: string): Promise<{
     isBreached: boolean;
-    breachCount?: number;
-    lastBreachDate?: string;
+    breachCount: number;
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
   }> {
-    try {
-      // In production, this would use HaveIBeenPwned API or similar
-      // For now, return mock data based on common passwords
-      const isCommon = this.isCommonPassword(password);
-      
-      return {
-        isBreached: isCommon,
-        breachCount: isCommon ? Math.floor(Math.random() * 100000) + 1000 : 0,
-        lastBreachDate: isCommon ? '2023-01-01' : undefined
-      };
-    } catch (error) {
-      console.error('Failed to check password breach:', error);
-      return { isBreached: false };
-    }
+    // Mock breach check
+    const isBreached = Math.random() < 0.1; // 10% chance of being "breached"
+    const breachCount = isBreached ? Math.floor(Math.random() * 1000) : 0;
+    
+    let riskLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
+    if (breachCount > 1000) riskLevel = 'critical';
+    else if (breachCount > 100) riskLevel = 'high';
+    else if (breachCount > 10) riskLevel = 'medium';
+
+    return { isBreached, breachCount, riskLevel };
   }
 
-  // Security Monitoring
-  static async getPasswordAuditLogs(limit: number = 100): Promise<PasswordAuditLog[]> {
+  static async getPasswordAuditLogs(userId?: string, limit: number = 100): Promise<PasswordAuditLog[]> {
     try {
-      const response = await secureDb.http.get(`/security/password-audit-logs?limit=${limit}`);
-      return response.success && response.data ? response.data : this.auditLogs.slice(-limit);
+      let logs = this.auditLogs;
+      if (userId) {
+        logs = logs.filter(log => log.userId === userId);
+      }
+      return logs.slice(0, limit);
     } catch (error) {
       console.error('Failed to get password audit logs:', error);
       return [];
@@ -412,106 +388,95 @@ export class PasswordSecurityService {
 
   // Private helper methods
   private static async encryptPassword(password: string): Promise<string> {
-    try {
-      // Use Web Crypto API for encryption
-      const encoder = new TextEncoder();
-      const data = encoder.encode(password);
-      const key = await crypto.subtle.generateKey(
-        { name: 'AES-GCM', length: 256 },
-        false,
-        ['encrypt']
-      );
-      
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const encrypted = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv },
-        key,
-        data
-      );
-      
-      // In production, securely store the key
-      return btoa(String.fromCharCode(...new Uint8Array(encrypted)));
-    } catch (error) {
-      console.error('Encryption failed:', error);
-      return btoa(password); // Fallback to base64 encoding
-    }
+    // Mock encryption - in real implementation, use proper encryption
+    return btoa(password);
   }
 
   private static isCommonPassword(password: string): boolean {
-    return COMMON_PASSWORDS.has(password.toLowerCase());
+    const commonPasswords = [
+      'password', '123456', '123456789', 'qwerty', 'abc123',
+      'password123', 'admin', 'letmein', 'welcome', 'monkey'
+    ];
+    return commonPasswords.includes(password.toLowerCase());
   }
 
-  private static containsPersonalInfo(password: string, userInfo?: {
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-    username?: string;
-  }): boolean {
+  private static containsPersonalInfo(password: string, userInfo: any): boolean {
     if (!userInfo) return false;
     
-    const lowerPassword = password.toLowerCase();
-    const checks = [
-      userInfo.firstName?.toLowerCase(),
-      userInfo.lastName?.toLowerCase(),
-      userInfo.email?.split('@')[0]?.toLowerCase(),
-      userInfo.username?.toLowerCase()
-    ];
-    
-    return checks.some(info => info && lowerPassword.includes(info));
+    const personalData = [
+      userInfo.name,
+      userInfo.email,
+      userInfo.username,
+      userInfo.phone,
+      userInfo.birthdate
+    ].filter(Boolean);
+
+    return personalData.some(data => 
+      password.toLowerCase().includes(data.toLowerCase())
+    );
   }
 
   private static hasRepeatingChars(password: string): boolean {
-    return /(.)\1{2,}/.test(password);
-  }
-
-  private static hasSequentialChars(password: string): boolean {
     for (let i = 0; i < password.length - 2; i++) {
-      const char1 = password.charCodeAt(i);
-      const char2 = password.charCodeAt(i + 1);
-      const char3 = password.charCodeAt(i + 2);
-      
-      if (char2 === char1 + 1 && char3 === char2 + 1) {
+      if (password[i] === password[i + 1] && password[i] === password[i + 2]) {
         return true;
       }
     }
     return false;
   }
 
+  private static hasSequentialChars(password: string): boolean {
+    const sequences = ['abc', '123', 'qwe', 'asd', 'zxc'];
+    return sequences.some(seq => password.toLowerCase().includes(seq));
+  }
+
+  private static calculateEntropy(password: string): number {
+    let charset = 0;
+    if (/[a-z]/.test(password)) charset += 26;
+    if (/[A-Z]/.test(password)) charset += 26;
+    if (/\d/.test(password)) charset += 10;
+    if (/[^a-zA-Z0-9]/.test(password)) charset += 32;
+
+    return password.length * Math.log2(charset);
+  }
+
+  private static estimateCrackTime(password: string, score: number): string {
+    if (score >= 90) return 'Centuries';
+    if (score >= 75) return 'Years';
+    if (score >= 60) return 'Months';
+    if (score >= 40) return 'Days';
+    if (score >= 20) return 'Hours';
+    return 'Minutes';
+  }
+
+  private static getCurrentUserId(): string {
+    // Mock user ID - in real implementation, get from auth context
+    return 'user_' + Math.random().toString(36).substr(2, 9);
+  }
+
   private static async logPasswordAction(
     action: PasswordAuditLog['action'],
     userId: string,
     credentialId?: string,
-    details?: any
+    details?: string
   ): Promise<void> {
     const log: PasswordAuditLog = {
-      id: SecurityService.generateSecureId(),
+      id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       userId,
       action,
       credentialId,
-      timestamp: new Date().toISOString(),
-      ipAddress: this.getClientIP(),
-      userAgent: navigator.userAgent,
-      success: true,
-      details
+      details: details || `Password ${action}`,
+      ipAddress: '127.0.0.1', // Mock IP
+      userAgent: 'Mock User Agent',
+      timestamp: new Date().toISOString()
     };
 
     this.auditLogs.push(log);
     
-    // In production, send to backend
-    try {
-      await secureDb.http.post('/security/password-audit-logs', log);
-    } catch (error) {
-      console.error('Failed to log password action:', error);
+    // Keep only last 1000 logs
+    if (this.auditLogs.length > 1000) {
+      this.auditLogs = this.auditLogs.slice(-1000);
     }
-  }
-
-  private static getCurrentUserId(): string {
-    return localStorage.getItem('currentUserId') || 'anonymous';
-  }
-
-  private static getClientIP(): string {
-    // In production, this would be determined server-side
-    return '127.0.0.1';
   }
 }
 

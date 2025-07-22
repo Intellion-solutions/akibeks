@@ -31,7 +31,7 @@ import { Link } from 'react-router-dom';
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import SEOWrapper from "@/components/SEOWrapper";
-import { supabase } from "@/lib/db-client";
+import { secureDb } from "@/lib/database-secure";
 import { formatDisplayAmount } from "@/lib/currency-utils";
 
 interface Service {
@@ -69,18 +69,37 @@ const Services = () => {
 
   const fetchServices = async () => {
     try {
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .eq('active', true)
-        .order('title');
+      const { data, error } = await secureDb.getServices({ isActive: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching services:', error);
+        return;
+      }
 
-      setServices(data || []);
+      const servicesData = Array.isArray(data) ? data : [];
+      
+      // Transform database Service to page Service interface
+      const transformedServices = servicesData.map((dbService: any) => ({
+        id: dbService.id,
+        title: dbService.name || dbService.title || 'Untitled Service',
+        description: dbService.description || '',
+        long_description: dbService.description || '',
+        icon: 'Wrench', // Default icon
+        features: dbService.features || [],
+        price_range_min: dbService.basePrice || 0,
+        price_range_max: (dbService.basePrice || 0) * 1.5,
+        duration_estimate: `${dbService.duration || 30} days`,
+        category: dbService.category || 'General',
+        active: dbService.isActive || false,
+        image_url: '',
+        benefits: dbService.deliverables || [],
+        process_steps: dbService.requirements || []
+      }));
+      
+      setServices(transformedServices);
       
       // Extract unique categories
-      const uniqueCategories = [...new Set(data?.map(service => service.category) || [])];
+      const uniqueCategories = [...new Set(transformedServices.map(service => service.category).filter(Boolean))];
       setCategories(uniqueCategories);
     } catch (error) {
       console.error('Error fetching services:', error);
@@ -152,8 +171,7 @@ const Services = () => {
           "project management Kenya",
           "building renovation",
           "consultation services"
-        ],
-        type: "website"
+        ]
       }}
     >
       <div className="min-h-screen bg-white">

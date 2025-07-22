@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, boolean, uuid, varchar, integer, decimal, json, index } from 'drizzle-orm/pg-core';
-import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
+// import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
 // SEO Configurations Table
@@ -228,63 +228,66 @@ export const schemaTemplates = pgTable('schema_templates', {
   };
 });
 
-// Zod schemas for validation
-export const insertSeoConfigurationSchema = createInsertSchema(seoConfigurations, {
-  pageType: z.string().min(1, 'Page type is required'),
-  title: z.string().min(1, 'Title is required').max(255),
-  description: z.string().min(1, 'Description is required').max(160, 'Description should be under 160 characters'),
-  keywords: z.array(z.string()).optional(),
-  priority: z.string().transform(val => parseFloat(val)).optional(),
-});
+// Temporarily commented out drizzle-zod schemas due to version conflicts
+// All schema exports commented out for now
 
-export const insertSitemapSchema = createInsertSchema(sitemaps, {
-  type: z.string().min(1, 'Sitemap type is required'),
-  url: z.string().url('Invalid URL format'),
-  lastModified: z.date(),
-  priority: z.string().transform(val => parseFloat(val)).optional(),
-});
+// Temporarily commented out drizzle-zod schemas due to version conflicts
+// export const insertSeoConfigurationSchema = createInsertSchema(seoConfigurations, {
+//   pageType: z.string().min(1, 'Page type is required'),
+//   title: z.string().min(1, 'Title is required').max(255),
+//   description: z.string().min(1, 'Description is required').max(160, 'Description should be under 160 characters'),
+//   keywords: z.array(z.string()).optional(),
+//   priority: z.string().transform(val => parseFloat(val)).optional(),
+// });
 
-export const insertSeoAnalyticsSchema = createInsertSchema(seoAnalytics, {
-  url: z.string().url('Invalid URL format'),
-  seoScore: z.number().min(0).max(100).optional(),
-  mobileScore: z.number().min(0).max(100).optional(),
-  desktopScore: z.number().min(0).max(100).optional(),
-});
+// export const insertSitemapSchema = createInsertSchema(sitemaps, {
+//   type: z.string().min(1, 'Sitemap type is required'),
+//   url: z.string().url('Invalid URL format'),
+//   lastModified: z.date(),
+//   priority: z.string().transform(val => parseFloat(val)).optional(),
+// });
 
-export const insertKeywordRankingSchema = createInsertSchema(keywordRankings, {
-  keyword: z.string().min(1, 'Keyword is required'),
-  url: z.string().url('Invalid URL format'),
-  position: z.number().min(1).optional(),
-  searchVolume: z.number().min(0).optional(),
-});
+// export const insertSeoAnalyticsSchema = createInsertSchema(seoAnalytics, {
+//   url: z.string().url('Invalid URL format'),
+//   seoScore: z.number().min(0).max(100).optional(),
+//   mobileScore: z.number().min(0).max(100).optional(),
+//   desktopScore: z.number().min(0).max(100).optional(),
+// });
 
-export const insertMetaRedirectSchema = createInsertSchema(metaRedirects, {
-  fromUrl: z.string().min(1, 'From URL is required'),
-  toUrl: z.string().url('Invalid destination URL'),
-  redirectType: z.number().refine(val => [301, 302, 307, 308].includes(val), 'Invalid redirect type'),
-});
+// export const insertKeywordRankingSchema = createInsertSchema(keywordRankings, {
+//   keyword: z.string().min(1, 'Keyword is required'),
+//   url: z.string().url('Invalid URL format'),
+//   position: z.number().min(1).optional(),
+//   searchVolume: z.number().min(0).optional(),
+// });
 
-export const insertRobotsConfigSchema = createInsertSchema(robotsConfig, {
-  userAgent: z.string().min(1, 'User agent is required'),
-  directive: z.enum(['allow', 'disallow', 'crawl-delay', 'sitemap']),
-  value: z.string().min(1, 'Value is required'),
-  priority: z.number().min(1).max(1000),
-});
+// export const insertMetaRedirectSchema = createInsertSchema(metaRedirects, {
+//   fromUrl: z.string().min(1, 'From URL is required'),
+//   toUrl: z.string().url('Invalid destination URL'),
+//   redirectType: z.number().refine(val => [301, 302, 307, 308].includes(val), 'Invalid redirect type'),
+// });
 
-export const insertSchemaTemplateSchema = createInsertSchema(schemaTemplates, {
-  name: z.string().min(1, 'Template name is required'),
-  type: z.string().min(1, 'Schema type is required'),
-  template: z.record(z.any()),
-});
+// export const insertRobotsConfigSchema = createInsertSchema(robotsConfig, {
+//   userAgent: z.string().min(1, 'User agent is required'),
+//   directive: z.enum(['allow', 'disallow', 'crawl-delay', 'sitemap']),
+//   value: z.string().min(1, 'Value is required'),
+//   priority: z.number().min(1).max(1000),
+// });
 
-// Select schemas
-export const selectSeoConfigurationSchema = createSelectSchema(seoConfigurations);
-export const selectSitemapSchema = createSelectSchema(sitemaps);
-export const selectSeoAnalyticsSchema = createSelectSchema(seoAnalytics);
-export const selectKeywordRankingSchema = createSelectSchema(keywordRankings);
-export const selectMetaRedirectSchema = createSelectSchema(metaRedirects);
-export const selectRobotsConfigSchema = createSelectSchema(robotsConfig);
-export const selectSchemaTemplateSchema = createSelectSchema(schemaTemplates);
+// export const insertSchemaTemplateSchema = createInsertSchema(schemaTemplates, {
+//   name: z.string().min(1, 'Template name is required'),
+//   type: z.string().min(1, 'Schema type is required'),
+//   template: z.record(z.any()),
+// });
+
+// // Select schemas
+// export const selectSeoConfigurationSchema = createSelectSchema(seoConfigurations);
+// export const selectSitemapSchema = createSelectSchema(sitemaps);
+// export const selectSeoAnalyticsSchema = createSelectSchema(seoAnalytics);
+// export const selectKeywordRankingSchema = createSelectSchema(keywordRankings);
+// export const selectMetaRedirectSchema = createSelectSchema(metaRedirects);
+// export const selectRobotsConfigSchema = createSelectSchema(robotsConfig);
+// export const selectSchemaTemplateSchema = createSelectSchema(schemaTemplates);
 
 // Types
 export type SeoConfiguration = typeof seoConfigurations.$inferSelect;

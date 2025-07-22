@@ -2,10 +2,10 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { createContactSubmissionSchema } from '../../../shared/schemas';
 import { HTTP_STATUS, CONTACT_STATUS } from '../../../shared/constants';
-import { DatabaseService } from '../services/database.service.js';
-import { SMTPService } from '../services/smtp.service.js';
-import { asyncHandler } from '../middleware/error.middleware.js';
-import { optionalAuth, requireEmployee } from '../middleware/auth.middleware.js';
+import { DatabaseService } from '../../services/database.service';
+import { SMTPService } from '../../services/smtp.service';
+import { asyncHandler } from '../middleware/error.middleware';
+import { optionalAuth, requireEmployee } from '../middleware/auth.middleware';
 
 const router = Router();
 
